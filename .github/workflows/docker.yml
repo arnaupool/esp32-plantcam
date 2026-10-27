@@ -5,6 +5,11 @@ name: Imágenes Docker
 on:
   push:
     branches: [main]
+    # Cambios solo de documentación o plantillas no reconstruyen las imágenes.
+    paths-ignore:
+      - "docs/**"
+      - "unraid/**"
+      - "**.md"
   workflow_dispatch:
 
 permissions:

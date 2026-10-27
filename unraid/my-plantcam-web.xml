@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>plantcam-web</Name>
+  <Repository>ghcr.io/arnaupool/plantcam-frontend:latest</Repository>
+  <Registry>https://github.com/arnaupool/esp32-plantcam/pkgs/container/plantcam-frontend</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/arnaupool/esp32-plantcam/issues</Support>
+  <Project>https://github.com/arnaupool/esp32-plantcam</Project>
+  <Overview>Panel web de PlantCam: dispositivos, galería de fotos, ajustes y timelapses. Reenvía /api al contenedor plantcam-backend, que debe estar instalado antes.</Overview>
+  <Category>Tools: HomeAutomation:</Category>
+  <WebUI>http://[IP]:[PORT:80]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam-web.xml</TemplateURL>
+  <Icon/>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Panel" Target="80" Default="8080" Mode="tcp" Description="Puerto del panel web. Es el que publicas en tu proxy (Nginx Proxy Manager o túnel)." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Backend" Target="BACKEND_URL" Default="" Mode="" Description="Dirección del backend vista desde este contenedor: http://IP-UNRAID:PUERTO, con el puerto que pusiste en plantcam-backend. No uses localhost." Type="Variable" Display="always" Required="true" Mask="false"/>
+</Container>

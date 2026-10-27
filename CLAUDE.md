@@ -31,6 +31,9 @@ probado con hardware**: solo compila. Backend y panel sí están probados de ext
 - Imagen backend: trae por defecto `DATABASE_URL`, `PHOTOS_DIR`, `TIMELAPSES_DIR` (todo bajo `/data`) y
   `REQUIRE_SECRETS=1`. Imagen frontend: `BACKEND_URL` (por defecto `http://backend:8000`, válido en Compose). En Unraid
   hay que poner `http://IP-UNRAID:PUERTO`, porque el modo Bridge no resuelve nombres de contenedor.
+- `unraid/` trae las plantillas del formulario de Docker (`my-plantcam-backend.xml`, `my-plantcam-web.xml`). Se copian a
+  `/boot/config/plugins/dockerMan/templates-user/` del Unraid. Los secretos van vacíos y obligatorios porque el repo es
+  público: nunca poner valores reales ahí.
 - `docker-compose.yml` usa las imágenes de ghcr.io; `docker-compose.build.yml` es un override para construir en local.
 - No hay Docker en el PC de desarrollo: la validación real de los Dockerfile y de nginx es la CI.
 

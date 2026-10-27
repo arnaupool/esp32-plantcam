@@ -22,7 +22,26 @@ No hace falta terminal, Portainer ni plugins: solo Docker activado (Settings, Do
    `PROVISIONING_SECRET` hay que pegarlo también en el firmware ([FIRMWARE.md](FIRMWARE.md)), y los dos tienen que ser
    idénticos.
 
-## Instalar el backend (una vez)
+## Instalar con las plantillas (recomendado)
+
+El repo trae dos plantillas de Unraid en [`unraid/`](../unraid/) que rellenan el formulario por ti.
+
+1. Cópialas a la flash de Unraid (una vez), desde su terminal:
+
+   ```bash
+   cd /boot/config/plugins/dockerMan/templates-user
+   curl -fsSLO https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam-backend.xml
+   curl -fsSLO https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam-web.xml
+   ```
+
+2. Pestaña **Docker**, **Add Container**, y en **Template** elige `my-plantcam-backend` (sección User templates). Rellena
+   las cuatro variables que salen vacías (los valores de "Antes de empezar") y **Apply**.
+3. Repite con `my-plantcam-web`: solo hay que rellenar `BACKEND_URL` (`http://IP-UNRAID:8000`).
+
+Las plantillas no traen ningún secreto: el repo es público, por eso salen vacíos. Si prefieres rellenar el formulario a
+mano, sigue con las dos secciones siguientes.
+
+## Instalar el backend a mano (sin plantilla)
 
 1. Unraid, pestaña **Docker**, abajo **Add Container**.
 2. Rellena:
@@ -50,7 +69,7 @@ Si el contenedor se para nada más arrancar, abre su icono, **Logs**: un mensaje
 obligatorias: ...` indica qué variable falta o está vacía. El backend se niega a arrancar sin los cuatro secretos a
 propósito, para que un olvido no deje el panel con una contraseña por defecto.
 
-## Instalar el panel web (una vez)
+## Instalar el panel web a mano (sin plantilla)
 
 1. **Add Container** otra vez:
 
