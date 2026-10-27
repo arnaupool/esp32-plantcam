@@ -1,0 +1,87 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f4f6f5;
+  color: #1c2320;
+}
+
+#app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+h1 { font-size: 1.4rem; margin-top: 0; }
+
+form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 320px; }
+
+form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; }
+
+input {
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: #2f7a4d;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:hover { background: #256040; }
+
+.error { color: #b3261e; font-size: 0.9rem; }
+
+.device-list { list-style: none; padding: 0; }
+
+.device-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.device-row:last-child { border-bottom: none; }
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: #e2e8e5;
+}
+
+.badge.online { background: #d5f0dd; color: #1e6b3c; }
+.badge.offline { background: #f0d5d5; color: #8a2222; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #2f7a4d;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9rem;
+}
