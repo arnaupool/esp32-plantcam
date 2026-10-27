@@ -19,7 +19,13 @@ static bool sdReady = false;
 static DeviceConfig currentConfig;
 static DeviceStore deviceStore;
 
-static bool initCamera() {
+// Tiempo que se deja al sensor para ajustar exposición y balance de blancos tras encenderlo.
+static const uint32_t CAMERA_SETTLE_MS = 1500;
+
+// La cámara se enciende en cada foto con la resolución de la config y se apaga después:
+// cambiar la resolución en caliente (set_framesize) no tiene efecto en la OV5640, las fotos
+// seguían saliendo a 5 MP aunque el driver dijera otra cosa.
+static bool initCamera(framesize_t frameSize) {
   camera_config_t config = {};
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -43,10 +49,11 @@ static bool initCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size = FRAMESIZE_QSXGA;  // 5MP máx del OV5640
+    config.frame_size = frameSize;
     config.jpeg_quality = 10;
     config.fb_count = 2;
     config.fb_location = CAMERA_FB_IN_PSRAM;
+    config.grab_mode = CAMERA_GRAB_LATEST;  // la foto es la última, no una de antes de ajustar la exposición
   } else {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;
@@ -72,9 +79,22 @@ static bool initSdCard() {
 }
 
 static void captureAndUpload() {
+  framesize_t frameSize;
+  if (!resolutionToFramesize(currentConfig.resolution, frameSize)) {
+    Serial.println("Resolución desconocida, se usa UXGA: " + currentConfig.resolution);
+    frameSize = FRAMESIZE_UXGA;
+  }
+
+  if (!initCamera(frameSize)) {
+    Serial.println("La cámara no inició, no se captura esta vez.");
+    return;
+  }
+  delay(CAMERA_SETTLE_MS);
+
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("Captura fallida: frame buffer vacío.");
+    esp_camera_deinit();
     return;
   }
 
@@ -92,8 +112,22 @@ static void captureAndUpload() {
     }
   }
 
-  uploadPhoto(fb, deviceStore);
+  // La foto se copia y la cámara se apaga antes de subirla: así su reloj (XCLK), su DMA y su
+  // consumo no coinciden con la transmisión WiFi.
+  size_t len = fb->len;
+  uint8_t *jpeg = (uint8_t *)ps_malloc(len);
+  if (!jpeg) {
+    Serial.println("Sin memoria para copiar la foto.");
+    esp_camera_fb_return(fb);
+    esp_camera_deinit();
+    return;
+  }
+  memcpy(jpeg, fb->buf, len);
   esp_camera_fb_return(fb);
+  esp_camera_deinit();
+
+  uploadPhoto(jpeg, len, deviceStore);
+  free(jpeg);
   photoCounter++;
 }
 
@@ -110,26 +144,11 @@ static void refreshConfig() {
                 currentConfig.scheduleEndMinute, currentConfig.isActive);
 }
 
-// Resolución que tiene el sensor ahora. Vacía = la que dejó initCamera(). En modo batería
-// el chip se reinicia en cada ciclo, así que se vuelve a aplicar en cada despertar.
-static String sensorResolution = "";
-
-static void applyResolutionIfNeeded() {
-  if (currentConfig.resolution == sensorResolution) return;
-  if (!applyResolution(currentConfig.resolution)) return;
-  sensorResolution = currentConfig.resolution;
-
-  // El primer fotograma tras cambiar de tamaño puede salir con el tamaño anterior: se descarta.
-  camera_fb_t *fb = esp_camera_fb_get();
-  if (fb) esp_camera_fb_return(fb);
-}
-
 static void runCycle() {
   // La config va primero: el horario y la resolución mandan sobre la foto de este ciclo.
   refreshConfig();
 
   if (currentConfig.isActive && isWithinSchedule(currentConfig)) {
-    applyResolutionIfNeeded();
     captureAndUpload();
   } else {
     Serial.println("Fuera de la ventana horaria o dispositivo inactivo, no se captura esta vez.");
@@ -155,10 +174,6 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  if (!initCamera()) {
-    Serial.println("Deteniendo: la cámara no inició.");
-    return;
-  }
   sdReady = initSdCard();
 
   loadDeviceStore(deviceStore);
@@ -180,5 +195,14 @@ void loop() {
   // Solo se llega aquí en modo "mains" (enchufado); en modo batería setup()
   // termina en deep sleep y el chip se reinicia en cada ciclo.
   delay(currentConfig.intervalSeconds * 1000UL);
+
+  // Sin WiFi o sin alta (portal caducado, servidor caído al arrancar...) el ciclo no puede
+  // hacer nada: se reinicia para repetir la conexión y el registro.
+  if (WiFi.status() != WL_CONNECTED || !deviceStore.hasIdentity()) {
+    Serial.println("Sin WiFi o sin alta en el servidor: reinicio para reintentar.");
+    delay(100);
+    ESP.restart();
+  }
+
   runCycle();
 }

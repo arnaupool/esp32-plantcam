@@ -57,7 +57,9 @@ y `.venv/Scripts/python -m platformio run` compila sin necesitar la placa.
 
 ## Limitaciones conocidas
 
-- El firmware está verificado solo por compilación: falta la prueba con la placa real (portal cautivo, cámara, subida).
-- Si el portal WiFi o el alta en el servidor fallan, el dispositivo no reintenta solo hasta que se reinicia.
+- Necesita buena cobertura WiFi de 2,4 GHz: con señal débil (-70 dBm en la primera prueba) las fotos no llegan, aunque
+  el dispositivo salga "En línea".
+- Con poca luz las fotos muestran bandas verticales.
+- El reset de fábrica (BOOT) borra también el alta: el dispositivo reaparece en el panel como uno nuevo.
 - No hay botón para borrar dispositivos, ni pantalla para cambiar la retención de fotos.
 - La zona horaria del firmware es un valor fijo sin cambio de horario automático.

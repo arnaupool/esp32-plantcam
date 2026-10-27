@@ -4,10 +4,11 @@ name: Imagen Docker
 on:
   push:
     branches: [main]
-    # Cambios solo de documentación o plantillas no reconstruyen la imagen.
+    # Cambios solo de documentación, plantillas o firmware no reconstruyen la imagen.
     paths-ignore:
       - "docs/**"
       - "unraid/**"
+      - "firmware/**"
       - "**.md"
   workflow_dispatch:
 

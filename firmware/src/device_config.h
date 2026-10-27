@@ -23,5 +23,5 @@ bool isWithinSchedule(const DeviceConfig &config);
 // Pide /devices/{id}/config al backend y rellena out. Devuelve false si falla la petición.
 bool fetchDeviceConfig(DeviceConfig &out, const DeviceStore &store);
 
-// Traduce el string de resolución (ej. "UXGA") a framesize_t y lo aplica al sensor activo.
-bool applyResolution(const String &resolution);
+// Traduce el string de resolución (ej. "UXGA") a framesize_t. Devuelve false si no la conoce.
+bool resolutionToFramesize(const String &resolution, framesize_t &out);

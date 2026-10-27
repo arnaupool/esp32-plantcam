@@ -105,7 +105,9 @@ bool runProvisioning(DeviceStore &store) {
   if (!connectWifiWithPortal(store)) {
     return false;
   }
-  Serial.println("WiFi conectado: " + WiFi.localIP().toString());
+  // Sin modo ahorro: en el S3 viene activado por defecto y atasca la subida de fotos grandes.
+  WiFi.setSleep(false);
+  Serial.printf("WiFi conectado: %s (RSSI %d dBm)\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
 
   if (store.hasIdentity()) {
     return true;

@@ -14,8 +14,10 @@ Seguimiento de tareas en `ESP32-PlantCam.canvas` (en `C:\Users\arnau\projects`, 
 `.tools-kanvas/CLAUDE.md`).
 
 14 tareas hechas y verificadas, FI-05 (portal cautivo y auto-registro) en revisión, y pendientes DE-02 (publicar tras
-el proxy del usuario, lo hace él con docs/DEPLOY.md) y DE-03 (prueba con el ESP32 real). **Nada del firmware se ha
-probado con hardware**: solo compila. Backend y panel sí están probados de extremo a extremo en local (curl y navegador).
+el proxy del usuario, lo hace él con docs/DEPLOY.md) y DE-03 (prueba con el ESP32 real). Servidor desplegado en el
+Unraid del usuario (`http://192.168.1.150:8000`). **Probado con la placa real el 27 de octubre de 2026**: portal
+cautivo, alta, config y captura funcionan; la subida falló con RSSI -70 dBm y funcionó enfrente del router (primera
+foto en el servidor). Pendiente: comprobar en la placa la resolución por config y un día completo de timelapse.
 
 ## Empaquetado y despliegue
 
@@ -88,9 +90,19 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
 
 - **Pines de la cámara** (`camera_pins.h`): diseño de referencia ESP32-S3-WROOM-1 N16R8 CAM (Keyestudio MB0184 y la
   mayoría de clones). Es lo primero a revisar si la cámara no inicia.
-- **Orden de un ciclo** (`runCycle`): primero pide la config, luego decide si captura (activo y dentro de horario), aplica
-  la resolución si cambió y sube la foto. Antes la config se pedía después de la foto y en modo batería ni el horario ni
-  la resolución se aplicaban (el chip se reinicia en cada ciclo).
+- **Orden de un ciclo** (`runCycle`): primero pide la config y luego decide si captura (activo y dentro de horario).
+  Antes la config se pedía después de la foto y en modo batería no se aplicaba.
+- **La cámara se enciende en cada foto** con la resolución de la config (`initCamera(framesize)`), espera 1,5 s para
+  que el sensor ajuste exposición (`CAMERA_GRAB_LATEST`), dispara, copia el JPEG y se apaga (`esp_camera_deinit`) antes
+  de subir. Motivo: `set_framesize` en caliente no tiene efecto en la OV5640. Las fotos salían a 2560x1920 aunque el
+  driver informara 1600x1200 (se comprobó leyendo la cabecera del JPEG). `fb->width/height` no son fiables para
+  verificar esto: hay que mirar el JPEG.
+- **WiFi**: tras conectar se desactiva el modo ahorro (`WiFi.setSleep(false)`); en el S3 viene activado por defecto
+  (`WIFI_PS_MIN_MODEM`, en `WiFiGeneric.cpp`). La subida (`backend_client.cpp`) hace hasta 2 intentos, pero solo si la
+  petición no llegó entera, para no duplicar fotos. Registra el RSSI y los milisegundos de cada intento.
+- **Cobertura**: con RSSI -70 dBm las fotos de ~600 KB no llegaban (`HTTP -3` tras ~105 s, `Failed to send chunk!`),
+  mientras que las peticiones pequeñas (alta, config) sí pasaban. Por eso un dispositivo puede salir "En línea" sin
+  subir fotos. Enfrente del router subió en segundos. Apagar la cámara durante la subida no cambió nada.
 - **Modo batería**: el despertar del deep sleep reinicia el chip, así que `setup()` hace todo y termina en
   `esp_deep_sleep_start()`; nunca llega a `loop()`. Modo enchufado: `loop()` con `delay`.
 - **Zona horaria**: `TIMEZONE_OFFSET_SECONDS` fijo en `config.h`, sin DST. 3600 de octubre a marzo, 7200 el resto.
@@ -101,14 +113,20 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
   mantener BOOT (GPIO0) 3 s al arrancar.
 - **URL del backend que escribe el usuario**: `http://IP:8000` en la LAN, o `https://dominio/api` por dominio. El
   firmware le añade `/devices/...`, y el backend responde igual en la raíz que bajo `/api`, así que valen ambas formas.
-- **Sin reintento**: si el portal (timeout de 5 min) o el registro fallan, el dispositivo no vuelve a intentarlo hasta
-  reiniciar. `provisioning` solo se llama en `setup()`.
-- Compilación verificada con PlatformIO en `firmware/.venv` (instalado por pip). `src/config.h` está en `.gitignore`.
+- **Reintento**: `provisioning` solo se llama en `setup()`. En modo enchufado, si al acabar el intervalo no hay WiFi o
+  no hay alta, `loop()` reinicia la placa para repetir portal y registro.
+- **Flashear esta placa**: puerto USB-C del chip CH343 (`1A86:55D3`, salió como COM4). El otro USB-C es el USB nativo
+  (`303A:4001`) y por él no sale el log. El paso automático a modo de grabación no funciona en esta placa: hay que
+  mantener BOOT pulsado mientras arranca `platformio run --target upload`. Tras flashear, la WiFi y el alta guardadas
+  en NVS se conservan.
+- Compilación con PlatformIO en `firmware/.venv` (instalado por pip). `src/config.h` está en `.gitignore`.
 
 ## Deuda conocida
 
-Sin prueba con hardware; sin reintento de portal o registro; sin borrado de dispositivos ni UI de retención; zona horaria
-sin DST; el AP de configuración no tiene contraseña.
+Necesita buena cobertura WiFi de 2,4 GHz; con poca luz las fotos muestran bandas verticales (sin ajustar todavía la
+ganancia del sensor); "En línea" en el panel no garantiza que las fotos suban; el reset con BOOT borra también el alta
+(el dispositivo reaparece como nuevo); sin borrado de dispositivos ni UI de retención; zona horaria sin DST; el AP de
+configuración no tiene contraseña.
 
 ## Cómo se prueba sin Docker
 

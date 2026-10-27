@@ -50,12 +50,15 @@ integrado junto al puerto) o prueba con el otro puerto USB-C.
 
 ## 5. Flashear
 
+Mantén pulsado **BOOT** y, sin soltarlo, lanza:
+
 ```bash
 .venv/Scripts/python -m platformio run --target upload
 ```
 
-Si falla con `Failed to connect` o `Wrong boot mode`: mantén pulsado **BOOT**, pulsa y suelta **RESET**, suelta BOOT y
-repite el comando.
+Suéltalo cuando empiece a escribir (`Writing at ...`), unos 15 segundos. En esta placa el paso automático a modo de
+grabación no funciona: sin BOOT pulsado falla con `Wrong boot mode detected (0x8)`. Al acabar, la WiFi y el alta
+guardadas se conservan.
 
 ## 6. Ver el log
 
@@ -102,7 +105,9 @@ para borrar dispositivos).
 |---------|------------------|
 | `Fallo al iniciar la cámara` | Pines de `camera_pins.h` o cable flex de la cámara mal encajado |
 | No aparece la red `PlantCam-Setup` | Ya tiene WiFi guardado: haz el reset de fábrica con BOOT |
-| Pasan 5 minutos sin completar el portal | No reintenta solo: pulsa RESET y vuelve a empezar el paso 7 |
+| Pasan 5 minutos sin completar el portal | Se reinicia solo tras el intervalo (10 minutos); para no esperar, pulsa RESET y vuelve al paso 7 |
+| `Failed to send chunk!` y `HTTP -3`, o sale "En línea" pero no llegan fotos | Cobertura WiFi insuficiente: con -70 dBm las fotos no llegan, aunque las peticiones pequeñas sí. Acércalo al router o usa la red de 2,4 GHz de un repetidor (reset con BOOT y elígela en el portal) |
+| Bandas verticales en las fotos | Poca luz: el sensor sube la ganancia. Con luz de día deberían desaparecer o notarse mucho menos |
 | `Fallo al auto-registrar ... HTTP 401` | `PROVISIONING_SECRET` distinto entre `config.h` y el servidor. Corrige uno y, si cambias el firmware, reflashea. Después RESET |
 | `Fallo al auto-registrar ... HTTP 404` o error de conexión | URL del servidor mal (IP, puerto o dominio equivocados). Reset de fábrica y repite el paso 7 |
 | Fotos fuera de horario o ventana desplazada una hora | `TIMEZONE_OFFSET_SECONDS` (cambio de horario) |

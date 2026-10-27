@@ -67,21 +67,13 @@ bool isWithinSchedule(const DeviceConfig &config) {
   return nowMinutes >= startMinutes || nowMinutes < endMinutes;
 }
 
-bool applyResolution(const String &resolution) {
-  sensor_t *sensor = esp_camera_sensor_get();
-  if (!sensor) return false;
-
-  framesize_t size;
-  if (resolution == "QSXGA") size = FRAMESIZE_QSXGA;
-  else if (resolution == "UXGA") size = FRAMESIZE_UXGA;
-  else if (resolution == "SXGA") size = FRAMESIZE_SXGA;
-  else if (resolution == "XGA") size = FRAMESIZE_XGA;
-  else if (resolution == "SVGA") size = FRAMESIZE_SVGA;
-  else if (resolution == "VGA") size = FRAMESIZE_VGA;
-  else {
-    Serial.println("Resolución desconocida, se mantiene la actual: " + resolution);
-    return false;
-  }
-
-  return sensor->set_framesize(sensor, size) == 0;
+bool resolutionToFramesize(const String &resolution, framesize_t &out) {
+  if (resolution == "QSXGA") out = FRAMESIZE_QSXGA;
+  else if (resolution == "UXGA") out = FRAMESIZE_UXGA;
+  else if (resolution == "SXGA") out = FRAMESIZE_SXGA;
+  else if (resolution == "XGA") out = FRAMESIZE_XGA;
+  else if (resolution == "SVGA") out = FRAMESIZE_SVGA;
+  else if (resolution == "VGA") out = FRAMESIZE_VGA;
+  else return false;
+  return true;
 }

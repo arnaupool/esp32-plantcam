@@ -1,7 +1,7 @@
 #pragma once
 
-#include <esp_camera.h>
+#include <Arduino.h>
 
 #include "device_store.h"
 
-bool uploadPhoto(camera_fb_t *fb, const DeviceStore &store);
+bool uploadPhoto(const uint8_t *jpeg, size_t len, const DeviceStore &store);
