@@ -5,15 +5,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
+COPY frontend/public/ /app/static/
 
 # Datos dentro del volumen /data; sin los secretos el contenedor no arranca.
 ENV DATABASE_URL=sqlite:////data/db/plantcam.db \
     PHOTOS_DIR=/data/photos \
     TIMELAPSES_DIR=/data/timelapses \
+    FRONTEND_DIR=/app/static \
     REQUIRE_SECRETS=1
 
 EXPOSE 8000

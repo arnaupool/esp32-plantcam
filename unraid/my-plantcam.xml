@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>plantcam-backend</Name>
-  <Repository>ghcr.io/arnaupool/plantcam-backend:latest</Repository>
-  <Registry>https://github.com/arnaupool/esp32-plantcam/pkgs/container/plantcam-backend</Registry>
+  <Name>plantcam</Name>
+  <Repository>ghcr.io/arnaupool/plantcam:latest</Repository>
+  <Registry>https://github.com/arnaupool/esp32-plantcam/pkgs/container/plantcam</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/arnaupool/esp32-plantcam/issues</Support>
   <Project>https://github.com/arnaupool/esp32-plantcam</Project>
-  <Overview>Servidor de PlantCam: recibe las fotos de los ESP32, genera los timelapses con ffmpeg y guarda los datos. Los cuatro secretos son obligatorios: sin ellos el contenedor no arranca a propósito. PROVISIONING_SECRET tiene que ser el mismo que el de firmware/src/config.h. Después de este contenedor, instala plantcam-web.</Overview>
+  <Overview>PlantCam: panel web y servidor en un solo contenedor. Recibe las fotos de los ESP32, genera los timelapses con ffmpeg y guarda los datos. Los cuatro secretos son obligatorios: sin ellos el contenedor no arranca a propósito. PROVISIONING_SECRET tiene que ser el mismo que el de firmware/src/config.h.</Overview>
   <Category>Tools: HomeAutomation:</Category>
-  <WebUI>http://[IP]:[PORT:8000]/health</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam-backend.xml</TemplateURL>
+  <WebUI>http://[IP]:[PORT:8000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam.xml</TemplateURL>
   <Icon/>
   <ExtraParams/>
   <PostArgs/>
@@ -21,7 +21,7 @@
   <DonateText/>
   <DonateLink/>
   <Requires/>
-  <Config Name="API" Target="8000" Default="8000" Mode="tcp" Description="Puerto de la API. Los ESP32 en la red local usan http://IP-UNRAID:este-puerto." Type="Port" Display="always" Required="true" Mask="false">8000</Config>
+  <Config Name="Puerto" Target="8000" Default="8000" Mode="tcp" Description="Panel web y API. Los ESP32 en la red local usan http://IP-UNRAID:este-puerto. Es el puerto que publicas en tu proxy." Type="Port" Display="always" Required="true" Mask="false">8000</Config>
   <Config Name="Datos" Target="/data" Default="/mnt/user/appdata/plantcam" Mode="rw" Description="Base de datos, fotos y timelapses. Para una copia de seguridad basta con copiar esta carpeta." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/plantcam</Config>
   <Config Name="Secret key" Target="SECRET_KEY" Default="" Mode="" Description="Firma las sesiones del panel. Genera uno con: openssl rand -hex 32" Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Usuario del panel" Target="ADMIN_USERNAME" Default="" Mode="" Description="Usuario para entrar al panel web." Type="Variable" Display="always" Required="true" Mask="false"/>

@@ -19,36 +19,43 @@ probado con hardware**: solo compila. Backend y panel sí están probados de ext
 
 ## Empaquetado y despliegue
 
-- Repo público `github.com/arnaupool/esp32-plantcam`. `.github/workflows/docker.yml`:
-  - job `check`: importa la app, construye las dos imágenes, prueba el backend (`/health`, `POST /devices/register`,
-    ffmpeg dentro de la imagen), comprueba que NO arranca sin secretos y valida nginx con `BACKEND_URL`;
-  - job `images` (solo si `check` pasa): publica `ghcr.io/arnaupool/plantcam-backend` y `plantcam-frontend`, con tags
-    `latest` y el sha del commit.
-- Despliegue en Unraid sin Portainer (decisión del usuario, mismo patrón que su proyecto getaro): dos contenedores desde
-  el formulario Add Container, actualizar con Edit y Apply. Volumen host `/mnt/user/appdata/plantcam` montado en `/data`.
-- Los paquetes de ghcr.io salieron públicos (heredan la visibilidad del repo; comprobado con una descarga anónima del
+- **Un solo contenedor** (decisión del usuario; antes eran backend y nginx separados, sin ninguna ventaja real): FastAPI
+  sirve también el panel. Una imagen, un puerto (8000), una plantilla.
+- Repo público `github.com/arnaupool/esp32-plantcam`. `.github/workflows/docker.yml` (no se ejecuta si solo cambian
+  `docs/`, `unraid/` o archivos `.md`):
+  - job `check`: importa la app, construye la imagen, prueba el servidor (`/health` y `/api/health`, el panel en `/`,
+    login, `POST /devices/register` por la raíz y por `/api`, ffmpeg dentro de la imagen) y comprueba que la imagen NO
+    arranca sin secretos;
+  - job `image` (solo si `check` pasa): publica `ghcr.io/arnaupool/plantcam` con tags `latest` y el sha del commit.
+- Despliegue en Unraid sin Portainer (decisión del usuario, mismo patrón que su proyecto getaro): un contenedor desde el
+  formulario Add Container, actualizar con Edit y Apply. Volumen host `/mnt/user/appdata/plantcam` montado en `/data`.
+- Los paquetes de ghcr.io salen públicos (heredan la visibilidad del repo; se comprobó con una descarga anónima del
   manifest, HTTP 200). Si Unraid diera `unauthorized`, revisar Package settings en GitHub.
-- Imagen backend: trae por defecto `DATABASE_URL`, `PHOTOS_DIR`, `TIMELAPSES_DIR` (todo bajo `/data`) y
-  `REQUIRE_SECRETS=1`. Imagen frontend: `BACKEND_URL` (por defecto `http://backend:8000`, válido en Compose). En Unraid
-  hay que poner `http://IP-UNRAID:PUERTO`, porque el modo Bridge no resuelve nombres de contenedor.
-- `unraid/` trae las plantillas del formulario de Docker (`my-plantcam-backend.xml`, `my-plantcam-web.xml`). Se copian a
+- `Dockerfile` en la raíz (copia `backend/` y `frontend/public/`). Trae por defecto `DATABASE_URL`, `PHOTOS_DIR`,
+  `TIMELAPSES_DIR` (todo bajo `/data`), `FRONTEND_DIR=/app/static` y `REQUIRE_SECRETS=1`.
+- `unraid/my-plantcam.xml` es la plantilla del formulario de Docker. Se copia a
   `/boot/config/plugins/dockerMan/templates-user/` del Unraid. Los secretos van vacíos y obligatorios porque el repo es
   público: nunca poner valores reales ahí.
-- `docker-compose.yml` usa las imágenes de ghcr.io; `docker-compose.build.yml` es un override para construir en local.
-- No hay Docker en el PC de desarrollo: la validación real de los Dockerfile y de nginx es la CI.
+- `docker-compose.yml` usa la imagen de ghcr.io; `docker-compose.build.yml` es un override para construir en local.
+- Quedaron huérfanos los paquetes antiguos `plantcam-backend` y `plantcam-frontend` en ghcr.io (los dos contenedores
+  de la primera versión). Se pueden borrar a mano desde GitHub.
+- No hay Docker en el PC de desarrollo: la validación real del Dockerfile es la CI.
 
 ## Arquitectura
 
 ```
-ESP32-S3 (firmware/) --HTTP--> backend (FastAPI :8000) <--/api-- frontend (nginx :80, JS vanilla) <-- navegador
+ESP32-S3 (firmware/) --HTTP--> FastAPI :8000 (API + panel) <-- navegador
                                     |
                            /data: SQLite, fotos, timelapses
 ```
 
 - `backend/`: FastAPI, SQLAlchemy, SQLite, Alembic, APScheduler. Elegido sin preguntar al usuario (encaja con Docker
-  autocontenido).
-- `frontend/`: HTML y JS sin build; nginx sirve el estático y reenvía `/api/*` al backend quitando el prefijo. Elegido sin
-  preguntar (panel pequeño y personal).
+  autocontenido). `app/main.py` registra cada router dos veces: en la raíz (`/devices`, lo que usa el firmware en la LAN)
+  y bajo `/api` (`/api/devices`, lo que usa el panel y los dispositivos que entran por dominio; la copia `/api` no sale
+  en `/docs`). El panel se monta al final en `/` con `StaticFiles` desde `FRONTEND_DIR` (por defecto
+  `../frontend/public`), así que las rutas de la API tienen prioridad.
+- `frontend/public/`: HTML y JS sin build, con rutas por `#hash` (no hace falta fallback de SPA). Llama siempre a
+  `/api/...`. Elegido sin preguntar (panel pequeño y personal).
 - `firmware/`: PlatformIO, framework Arduino, ESP32-S3 (16 MB de flash, 8 MB de PSRAM octal).
 
 ## Secretos y variables
@@ -92,8 +99,8 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
   `PlantCam-Setup` (WiFiManager) con campos de WiFi y URL del backend, guardados en NVS (`Preferences`, espacio
   `plantcam`). Sin `device_id`/`api_key` en NVS, llama a `POST /devices/register` y los guarda. Reset de fábrica:
   mantener BOOT (GPIO0) 3 s al arrancar.
-- **URL del backend que escribe el usuario**: `http://IP:8000` directo en la LAN, o `https://dominio/api` si pasa por el
-  panel (nginx quita `/api`). Sin el `/api` por dominio, el registro da 404.
+- **URL del backend que escribe el usuario**: `http://IP:8000` en la LAN, o `https://dominio/api` por dominio. El
+  firmware le añade `/devices/...`, y el backend responde igual en la raíz que bajo `/api`, así que valen ambas formas.
 - **Sin reintento**: si el portal (timeout de 5 min) o el registro fallan, el dispositivo no vuelve a intentarlo hasta
   reiniciar. `provisioning` solo se llama en `setup()`.
 - Compilación verificada con PlatformIO en `firmware/.venv` (instalado por pip). `src/config.h` está en `.gitignore`.
@@ -105,6 +112,6 @@ sin DST; el AP de configuración no tiene contraseña.
 
 ## Cómo se prueba sin Docker
 
-`uvicorn` en un puerto libre más un proxy casero de Python (`http.server` y `urllib`) que sirve `frontend/public` y
-reenvía `/api/*` al backend, para probar el panel en el navegador. Es un script desechable, no vive en el repo. Para
-timelapses reales hace falta `ffmpeg` en el PATH (se instaló con winget en este PC).
+`uvicorn app.main:app --port 8150` dentro de `backend/` (con `alembic upgrade head` antes): ya sirve el panel en `/` y la
+API, sin proxies. Entrar con `admin` / `admin` (en desarrollo no rige `REQUIRE_SECRETS`). Para timelapses reales hace
+falta `ffmpeg` en el PATH (se instaló con winget en este PC).

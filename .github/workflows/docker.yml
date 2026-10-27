@@ -1,11 +1,10 @@
-# Cada push a main: comprueba el backend, prueba las imágenes y publica
-# ghcr.io/<usuario>/plantcam-backend:latest y plantcam-frontend:latest
-name: Imágenes Docker
+# Cada push a main: prueba la imagen y publica ghcr.io/<usuario>/plantcam:latest
+name: Imagen Docker
 
 on:
   push:
     branches: [main]
-    # Cambios solo de documentación o plantillas no reconstruyen las imágenes.
+    # Cambios solo de documentación o plantillas no reconstruyen la imagen.
     paths-ignore:
       - "docs/**"
       - "unraid/**"
@@ -31,41 +30,39 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -c "import app.main"
-      - name: Construir imágenes
-        run: |
-          docker build -t plantcam-backend:ci backend
-          docker build -t plantcam-frontend:ci frontend
-      - name: Prueba de humo del backend
+      - name: Construir la imagen
+        run: docker build -t plantcam:ci .
+      - name: Prueba de humo
         run: |
           docker run -d --name pc -p 8000:8000 \
-            -e DATABASE_URL=sqlite:////data/db/plantcam.db \
-            -e PHOTOS_DIR=/data/photos -e TIMELAPSES_DIR=/data/timelapses \
             -e SECRET_KEY=ci-secret-ci-secret-ci-secret-0123 \
             -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=ci -e PROVISIONING_SECRET=ci-prov \
-            plantcam-backend:ci
+            plantcam:ci
           for i in $(seq 1 30); do curl -fs http://localhost:8000/health && break; sleep 1; done
+          echo "--- API en la raíz y bajo /api"
           curl -fsS http://localhost:8000/health
+          curl -fsS http://localhost:8000/api/health
+          echo "--- panel servido por el mismo contenedor"
+          curl -fsS http://localhost:8000/ | grep -c "PlantCam"
+          curl -fsS http://localhost:8000/js/api.js | grep -c "API_BASE"
+          echo "--- login y alta de dispositivo por las dos rutas"
+          curl -fsS -X POST http://localhost:8000/api/auth/login \
+            -H 'content-type: application/json' -d '{"username":"admin","password":"ci"}' | cut -c1-40
           curl -fsS -X POST http://localhost:8000/devices/register \
-            -H 'content-type: application/json' \
-            -d '{"provisioning_secret":"ci-prov","name":"ci"}'
+            -H 'content-type: application/json' -d '{"provisioning_secret":"ci-prov","name":"raiz"}'
+          curl -fsS -X POST http://localhost:8000/api/devices/register \
+            -H 'content-type: application/json' -d '{"provisioning_secret":"ci-prov","name":"api"}'
+          echo "--- ffmpeg dentro de la imagen"
           docker exec pc ffmpeg -version | head -1
-      - name: El backend no arranca sin secretos
+      - name: La imagen no arranca sin secretos
         run: |
-          if docker run --rm plantcam-backend:ci; then
-            echo "El backend arrancó sin secretos"; exit 1
+          if docker run --rm plantcam:ci; then
+            echo "El contenedor arrancó sin secretos"; exit 1
           fi
-      - name: Validar nginx
-        run: |
-          docker run --rm --add-host backend:127.0.0.1 plantcam-frontend:ci nginx -t
-          docker run --rm -e BACKEND_URL=http://192.168.1.150:8000 plantcam-frontend:ci nginx -T \
-            | grep -F "proxy_pass http://192.168.1.150:8000/;"
 
-  images:
+  image:
     needs: check
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -76,13 +73,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.service }}
+          context: .
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/${{ github.repository_owner }}/plantcam-${{ matrix.service }}:latest
-            ghcr.io/${{ github.repository_owner }}/plantcam-${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/plantcam:latest
+            ghcr.io/${{ github.repository_owner }}/plantcam:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

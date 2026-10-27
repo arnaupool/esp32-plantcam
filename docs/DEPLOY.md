@@ -1,15 +1,15 @@
 # Desplegar PlantCam en Unraid
 
-Las imágenes se construyen solas en GitHub en cada cambio y se publican en
-`ghcr.io/arnaupool/plantcam-backend:latest` y `ghcr.io/arnaupool/plantcam-frontend:latest`.
-En Unraid se instalan una vez desde el formulario de Docker (son dos contenedores) y después se actualizan con un clic.
-No hace falta terminal, Portainer ni plugins: solo Docker activado (Settings, Docker, Enable Docker: Yes).
+La imagen se construye sola en GitHub en cada cambio y se publica en `ghcr.io/arnaupool/plantcam:latest`. Es un único
+contenedor que sirve el panel web y la API. En Unraid se instala una vez desde el formulario de Docker y después se
+actualiza con un clic. No hace falta terminal para usarlo, ni Portainer, ni plugins: solo Docker activado (Settings,
+Docker, Enable Docker: Yes).
 
 ## Antes de empezar (5 minutos)
 
-1. En GitHub, pestaña **Actions** del repo: el último "Imágenes Docker" tiene que estar en verde (tarda unos 5 minutos
-   tras cada push). Si es la primera vez, comprueba en tu perfil, **Packages**, que `plantcam-backend` y
-   `plantcam-frontend` son **Public**; si salen privados, abre cada paquete, Package settings, Change visibility.
+1. En GitHub, pestaña **Actions** del repo: el último "Imagen Docker" tiene que estar en verde (tarda unos 5 minutos
+   tras cada push). Si es la primera vez, comprueba en tu perfil, **Packages**, que `plantcam` es **Public**; si sale
+   privado, abre el paquete, Package settings, Change visibility.
 2. Inventa cuatro valores y apúntalos:
 
    | Valor | Para qué | Cómo |
@@ -22,86 +22,63 @@ No hace falta terminal, Portainer ni plugins: solo Docker activado (Settings, Do
    `PROVISIONING_SECRET` hay que pegarlo también en el firmware ([FIRMWARE.md](FIRMWARE.md)), y los dos tienen que ser
    idénticos.
 
-## Instalar con las plantillas (recomendado)
+## Instalar con la plantilla (recomendado)
 
-El repo trae dos plantillas de Unraid en [`unraid/`](../unraid/) que rellenan el formulario por ti.
+El repo trae una plantilla de Unraid en [`unraid/`](../unraid/) que rellena el formulario por ti.
 
-1. Cópialas a la flash de Unraid (una vez), desde su terminal:
+1. Cópiala a la flash de Unraid (una vez), desde su terminal:
 
    ```bash
    cd /boot/config/plugins/dockerMan/templates-user
-   curl -fsSLO https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam-backend.xml
-   curl -fsSLO https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam-web.xml
+   curl -fsSLO https://raw.githubusercontent.com/arnaupool/esp32-plantcam/main/unraid/my-plantcam.xml
    ```
 
-2. Pestaña **Docker**, **Add Container**, y en **Template** elige `my-plantcam-backend` (sección User templates). Rellena
-   las cuatro variables que salen vacías (los valores de "Antes de empezar") y **Apply**.
-3. Repite con `my-plantcam-web`: solo hay que rellenar `BACKEND_URL` (`http://IP-UNRAID:8000`).
+2. Pestaña **Docker**, **Add Container**, y en **Template** elige `my-plantcam` (sección User templates). Rellena las
+   cuatro variables que salen vacías (los valores de "Antes de empezar") y **Apply**.
+3. Abre `http://IP-UNRAID:8000/health`: tiene que responder `{"status":"ok"}`. El panel está en
+   `http://IP-UNRAID:8000/` (o icono del contenedor, **WebUI**). Entra con `ADMIN_USERNAME` y `ADMIN_PASSWORD`. Empieza
+   vacío: los dispositivos aparecen solos cuando se dan de alta ([FIRMWARE.md](FIRMWARE.md)).
 
-Las plantillas no traen ningún secreto: el repo es público, por eso salen vacíos. Si prefieres rellenar el formulario a
-mano, sigue con las dos secciones siguientes.
+La plantilla no trae ningún secreto: el repo es público, por eso salen vacíos. Si prefieres rellenar el formulario a
+mano, sigue con la sección siguiente.
 
-## Instalar el backend a mano (sin plantilla)
+## Instalar a mano (sin plantilla)
 
 1. Unraid, pestaña **Docker**, abajo **Add Container**.
 2. Rellena:
 
    | Campo | Valor |
    |-------|-------|
-   | Name | `plantcam-backend` |
-   | Repository | `ghcr.io/arnaupool/plantcam-backend:latest` |
+   | Name | `plantcam` |
+   | Repository | `ghcr.io/arnaupool/plantcam:latest` |
    | Network Type | `Bridge` |
+   | WebUI | `http://[IP]:[PORT:8000]/` |
 
 3. **Add another Path, Port, Variable, Label or Device** y añade estos seis (cambia "Config Type" en cada uno):
 
    | Config Type | Name | Valor |
    |-------------|------|-------|
+   | Port | `Puerto` | Container Port `8000`, Host Port `8000` (o cualquier puerto libre) |
    | Path | `Datos` | Container Path `/data`, Host Path `/mnt/user/appdata/plantcam`, Read/Write |
-   | Port | `API` | Container Port `8000`, Host Port `8000` (o cualquier puerto libre) |
    | Variable | `Secret key` | Key `SECRET_KEY`, Value: el de arriba |
    | Variable | `Usuario` | Key `ADMIN_USERNAME`, Value: el de arriba |
    | Variable | `Contraseña` | Key `ADMIN_PASSWORD`, Value: el de arriba |
    | Variable | `Secreto de alta` | Key `PROVISIONING_SECRET`, Value: el de arriba |
 
-4. **Apply**. Para comprobarlo abre `http://IP-UNRAID:8000/health`: tiene que responder `{"status":"ok"}`.
+4. **Apply** y comprueba `http://IP-UNRAID:8000/health` como arriba.
 
 Si el contenedor se para nada más arrancar, abre su icono, **Logs**: un mensaje `Faltan variables de entorno
-obligatorias: ...` indica qué variable falta o está vacía. El backend se niega a arrancar sin los cuatro secretos a
+obligatorias: ...` indica qué variable falta o está vacía. El servidor se niega a arrancar sin los cuatro secretos a
 propósito, para que un olvido no deje el panel con una contraseña por defecto.
-
-## Instalar el panel web a mano (sin plantilla)
-
-1. **Add Container** otra vez:
-
-   | Campo | Valor |
-   |-------|-------|
-   | Name | `plantcam-web` |
-   | Repository | `ghcr.io/arnaupool/plantcam-frontend:latest` |
-   | Network Type | `Bridge` |
-   | WebUI | `http://[IP]:[PORT:80]/` |
-
-2. Añade dos:
-
-   | Config Type | Name | Valor |
-   |-------------|------|-------|
-   | Port | `Panel` | Container Port `80`, Host Port `8080` (o cualquier puerto libre) |
-   | Variable | `Backend` | Key `BACKEND_URL`, Value `http://IP-UNRAID:8000` (el Host Port que pusiste al backend) |
-
-   `BACKEND_URL` tiene que ser la IP real del Unraid, no `localhost`: en el modo Bridge los contenedores no se ven por
-   nombre.
-
-3. **Apply**, icono del contenedor, **WebUI**. Entra con `ADMIN_USERNAME` y `ADMIN_PASSWORD`. El panel empieza vacío:
-   los dispositivos aparecen solos cuando se dan de alta ([FIRMWARE.md](FIRMWARE.md)).
 
 ## Actualizar (cada vez que haya cambios)
 
-Cuando se sube un cambio a GitHub, las imágenes nuevas están listas en unos 5 minutos. Entonces, para cada contenedor
-(backend y web):
+Cuando se sube un cambio a GitHub, la imagen nueva está lista en unos 5 minutos. Entonces:
 
-Pestaña Docker, icono del contenedor, **Edit** y **Apply** sin cambiar nada: Unraid descarga la imagen nueva y recrea el
+Pestaña Docker, icono de plantcam, **Edit** y **Apply** sin cambiar nada: Unraid descarga la imagen nueva y recrea el
 contenedor. Otra forma: activa **Advanced View** (arriba a la derecha) y pulsa **force update** en su fila.
 
-La base de datos se migra sola al arrancar el backend. Los datos viven en `/mnt/user/appdata/plantcam` y no se tocan al
+La base de datos se migra sola al arrancar. Los datos viven en `/mnt/user/appdata/plantcam` y no se tocan al
 actualizar.
 
 ## Datos y copias de seguridad
@@ -114,25 +91,25 @@ Política de retención por defecto: las fotos originales se borran al generar e
 
 ## Acceso desde fuera de casa
 
-1. En Nginx Proxy Manager (o tu túnel), un Proxy Host hacia `IP-UNRAID:8080` (el panel), con tu dominio y SSL.
-2. Un ESP32 que esté fuera de tu red usa como URL del backend `https://tu-dominio/api` (el panel reenvía `/api` al
-   backend). Dentro de casa usa `http://IP-UNRAID:8000`.
-3. No abras el puerto 8000 a internet: todo lo de fuera debe entrar por el dominio.
+1. En Nginx Proxy Manager (o tu túnel), un Proxy Host hacia `IP-UNRAID:8000`, con tu dominio y SSL. Sirve el panel y la
+   API a la vez.
+2. Un ESP32 que esté fuera de tu red usa como URL del servidor la misma dirección que abres en el navegador,
+   `https://tu-dominio`. Dentro de casa usa `http://IP-UNRAID:8000`.
+3. No abras el puerto 8000 en el router: todo lo de fuera debe entrar por el dominio, con SSL.
 
 ## Alternativa con Docker Compose
 
 Si prefieres Compose: copia `.env.example` a `.env`, rellena los cuatro valores y ejecuta `docker compose up -d`. El
-`docker-compose.yml` usa las mismas imágenes. Para construirlas en local en lugar de descargarlas:
+`docker-compose.yml` usa la misma imagen. Para construirla en local en lugar de descargarla:
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 ## Problemas frecuentes
 
 | Síntoma | Causa y solución |
 |---------|------------------|
-| El backend se para al arrancar | Falta o está vacía alguna de las cuatro variables (mira Logs) |
+| El contenedor se para al arrancar | Falta o está vacía alguna de las cuatro variables (mira Logs) |
 | Al aplicar: `port is already allocated` | Edit, cambia el Host Port por otro libre |
 | Al aplicar: `pull access denied` o `unauthorized` | El paquete de ghcr.io es privado: ponlo en Public (ver "Antes de empezar") |
-| El panel carga pero da error al entrar | `BACKEND_URL` mal: tiene que apuntar a `http://IP-UNRAID:PUERTO-DEL-BACKEND` |
-| "Credenciales incorrectas" | No coincide con `ADMIN_USERNAME`/`ADMIN_PASSWORD`; si los cambias, Edit y Apply en el backend |
-| Tras actualizar sigue la versión anterior | Mira que el último "Imágenes Docker" de Actions esté en verde y repite Edit, Apply |
+| "Credenciales incorrectas" | No coincide con `ADMIN_USERNAME`/`ADMIN_PASSWORD`; si los cambias, Edit y Apply |
+| Tras actualizar sigue la versión anterior | Mira que el último "Imagen Docker" de Actions esté en verde y repite Edit, Apply |
 | Un ESP32 no se da de alta (401 en su log) | `PROVISIONING_SECRET` distinto entre el servidor y el firmware |

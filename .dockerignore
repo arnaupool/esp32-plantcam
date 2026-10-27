@@ -1,0 +1,9 @@
+.git
+.github
+docs
+unraid
+firmware
+**/.venv
+**/__pycache__
+**/*.pyc
+backend/data

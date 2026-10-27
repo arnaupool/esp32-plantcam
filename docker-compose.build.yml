@@ -1,7 +1,5 @@
-# Para construir las imágenes en local en vez de descargarlas de ghcr.io:
+# Para construir la imagen en local en vez de descargarla de ghcr.io:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
-  backend:
-    build: ./backend
-  frontend:
-    build: ./frontend
+  plantcam:
+    build: .

@@ -72,7 +72,7 @@ Pulsa **RESET** en la placa para ver el arranque desde el principio. Si no sale 
 2. Pulsa **Configure WiFi**, elige tu red (tiene que ser de 2,4 GHz: el ESP32 no usa 5 GHz), escribe su contraseña y,
    en **URL del backend**:
    - Dentro de casa: `http://IP-UNRAID:8000`
-   - Si el servidor está detrás de un dominio: `https://tu-dominio/api`
+   - Si el servidor está detrás de un dominio: `https://tu-dominio` (la misma dirección que abres en el navegador)
 3. **Save**. El dispositivo se conecta a tu WiFi y se da de alta solo en el servidor. En el log verás
    `WiFi conectado: ...` y `Dispositivo auto-registrado: <id>`.
 
@@ -104,6 +104,6 @@ para borrar dispositivos).
 | No aparece la red `PlantCam-Setup` | Ya tiene WiFi guardado: haz el reset de fábrica con BOOT |
 | Pasan 5 minutos sin completar el portal | No reintenta solo: pulsa RESET y vuelve a empezar el paso 7 |
 | `Fallo al auto-registrar ... HTTP 401` | `PROVISIONING_SECRET` distinto entre `config.h` y el servidor. Corrige uno y, si cambias el firmware, reflashea. Después RESET |
-| `Fallo al auto-registrar ... HTTP 404` o error de conexión | URL del backend mal: puerto equivocado, o falta `/api` cuando va por dominio. Reset de fábrica y repite el paso 7 |
+| `Fallo al auto-registrar ... HTTP 404` o error de conexión | URL del servidor mal (IP, puerto o dominio equivocados). Reset de fábrica y repite el paso 7 |
 | Fotos fuera de horario o ventana desplazada una hora | `TIMEZONE_OFFSET_SECONDS` (cambio de horario) |
 | No sube fotos pero el log muestra la captura | El servidor no es alcanzable desde ese WiFi: comprueba la URL del backend |

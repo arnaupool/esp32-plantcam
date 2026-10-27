@@ -6,22 +6,21 @@ genera timelapses diarios y semanales y los muestra en un panel web. Pensado par
 ## Cómo funciona
 
 - El ESP32 hace una foto cada N minutos dentro de una ventana horaria (por ejemplo, de día) y la sube por HTTP al
-  backend. Puede ir enchufado o con pilas (duerme entre fotos).
-- Los ajustes (intervalo, horario, resolución, modo de energía) se cambian desde el panel; el dispositivo los lee tras
-  cada foto.
-- El backend genera un timelapse por día (00:05) y otro por semana (domingo 00:15) con ffmpeg, y también bajo demanda
+  servidor. Puede ir enchufado o con pilas (duerme entre fotos).
+- Los ajustes (intervalo, horario, resolución, modo de energía) se cambian desde el panel; el dispositivo los lee antes
+  de cada foto.
+- El servidor genera un timelapse por día (00:05) y otro por semana (domingo 00:15) con ffmpeg, y también bajo demanda
   desde el panel. Las fotos originales se purgan tras el timelapse semanal.
 - Un dispositivo nuevo se da de alta solo en su primer arranque: configuras su WiFi desde el móvil y listo.
 
 ```mermaid
 flowchart LR
-  ESP["ESP32-S3 + OV5640"] -- "foto cada N min (HTTP)" --> API
+  ESP["ESP32-S3 + OV5640"] -- "foto cada N min (HTTP)" --> APP
   subgraph Unraid
-    WEB["plantcam-web (nginx, :8080)"] -- "/api" --> API["plantcam-backend (FastAPI, :8000)"]
-    API --> DATA[("/data: SQLite, fotos, timelapses")]
+    APP["plantcam (FastAPI, :8000)<br/>API + panel web"] --> DATA[("/data: SQLite, fotos, timelapses")]
   end
-  YO["Navegador"] --> WEB
-  GH["GitHub Actions"] -- "imágenes ghcr.io" --> Unraid
+  YO["Navegador"] --> APP
+  GH["GitHub Actions"] -- "imagen ghcr.io" --> Unraid
 ```
 
 ## Componentes
@@ -29,9 +28,10 @@ flowchart LR
 | Carpeta | Qué es |
 |---------|--------|
 | `firmware/` | PlatformIO, framework Arduino, ESP32-S3 (16 MB de flash, 8 MB de PSRAM) |
-| `backend/` | FastAPI, SQLAlchemy, SQLite, Alembic, APScheduler, ffmpeg |
-| `frontend/` | Panel en HTML y JavaScript sin build, servido por nginx |
-| `.github/workflows/` | Prueba y publica las imágenes Docker en ghcr.io |
+| `backend/` | FastAPI, SQLAlchemy, SQLite, Alembic, APScheduler, ffmpeg. También sirve el panel |
+| `frontend/public/` | Panel en HTML y JavaScript sin build |
+| `unraid/` | Plantilla del formulario de Docker de Unraid |
+| `.github/workflows/` | Prueba y publica la imagen Docker en ghcr.io |
 
 ## Empezar
 
@@ -51,9 +51,9 @@ python -m venv .venv
 .venv/Scripts/python -m uvicorn app.main:app --port 8000
 ```
 
-En desarrollo el login del panel es `admin` / `admin` (la imagen Docker exige secretos propios). Los timelapses
-necesitan `ffmpeg` en el PATH. Para el firmware, `cd firmware` y
-`.venv/Scripts/python -m platformio run` compila sin necesitar la placa.
+Abre `http://localhost:8000/`: el mismo proceso sirve el panel y la API. En desarrollo el login es `admin` / `admin`
+(la imagen Docker exige secretos propios). Los timelapses necesitan `ffmpeg` en el PATH. Para el firmware, `cd firmware`
+y `.venv/Scripts/python -m platformio run` compila sin necesitar la placa.
 
 ## Limitaciones conocidas
 
