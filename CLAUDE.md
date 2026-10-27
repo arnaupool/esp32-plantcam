@@ -26,8 +26,8 @@ probado con hardware**: solo compila. Backend y panel sí están probados de ext
     `latest` y el sha del commit.
 - Despliegue en Unraid sin Portainer (decisión del usuario, mismo patrón que su proyecto getaro): dos contenedores desde
   el formulario Add Container, actualizar con Edit y Apply. Volumen host `/mnt/user/appdata/plantcam` montado en `/data`.
-- **Los paquetes de ghcr.io tienen que ser públicos** o Unraid no puede descargarlos (se cambia a mano en GitHub, Package
-  settings, la primera vez).
+- Los paquetes de ghcr.io salieron públicos (heredan la visibilidad del repo; comprobado con una descarga anónima del
+  manifest, HTTP 200). Si Unraid diera `unauthorized`, revisar Package settings en GitHub.
 - Imagen backend: trae por defecto `DATABASE_URL`, `PHOTOS_DIR`, `TIMELAPSES_DIR` (todo bajo `/data`) y
   `REQUIRE_SECRETS=1`. Imagen frontend: `BACKEND_URL` (por defecto `http://backend:8000`, válido en Compose). En Unraid
   hay que poner `http://IP-UNRAID:PUERTO`, porque el modo Bridge no resuelve nombres de contenedor.
