@@ -1,14 +1,13 @@
 const routes = [
   { pattern: /^#\/login$/, view: renderLogin },
   { pattern: /^#\/dashboard$/, view: renderDashboard },
-  { pattern: /^#\/devices\/([^/]+)$/, view: renderDeviceSettings },
-  { pattern: /^#\/devices\/([^/]+)\/photos$/, view: renderGallery },
-  { pattern: /^#\/devices\/([^/]+)\/timelapses$/, view: renderTimelapses },
+  { pattern: /^#\/devices\/([^/]+)\/(photos|timelapses|settings)$/, view: renderDevice },
+  { pattern: /^#\/devices\/([^/]+)$/, view: renderDevice },
 ];
 
 function resolveRoute() {
   const root = document.getElementById("app");
-  let hash = location.hash || "#/dashboard";
+  const hash = location.hash || "#/dashboard";
 
   if (hash !== "#/login" && !Api.getToken()) {
     location.hash = "#/login";
@@ -19,6 +18,10 @@ function resolveRoute() {
     return;
   }
 
+  // Un visor abierto no debe sobrevivir a un cambio de pantalla.
+  document.querySelectorAll(".lightbox").forEach((el) => el.remove());
+  document.body.style.overflow = "";
+
   for (const route of routes) {
     const match = hash.match(route.pattern);
     if (match) {
@@ -26,8 +29,7 @@ function resolveRoute() {
       return;
     }
   }
-
-  renderLogin(root);
+  location.hash = "#/dashboard";
 }
 
 window.addEventListener("hashchange", resolveRoute);

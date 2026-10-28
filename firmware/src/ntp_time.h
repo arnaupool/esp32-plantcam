@@ -6,7 +6,7 @@
 // (sin DST automático: ajusta el offset a mano si cambia el horario).
 bool syncTime(uint32_t timeoutMs = 10000);
 
-// Hora local actual, solo válida si syncTime() tuvo éxito antes.
+// Hora local actual. Devuelve false mientras el reloj no esté sincronizado.
 struct LocalTime {
   uint8_t hour;
   uint8_t minute;

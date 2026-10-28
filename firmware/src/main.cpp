@@ -12,6 +12,10 @@
 #include "ntp_time.h"
 #include "provisioning.h"
 
+// LED RGB de la placa (WS2812). Conserva el último color mientras tenga corriente, incluso tras
+// un reinicio (el firmware de fábrica lo dejaba encendido), así que se apaga al arrancar.
+#define RGB_LED_PIN 48
+
 // Sobrevive al deep sleep (la RAM normal no).
 RTC_DATA_ATTR static int photoCounter = 0;
 
@@ -20,11 +24,11 @@ static DeviceConfig currentConfig;
 static DeviceStore deviceStore;
 
 // Tiempo que se deja al sensor para ajustar exposición y balance de blancos tras encenderlo.
-static const uint32_t CAMERA_SETTLE_MS = 1500;
+static const uint32_t CAMERA_SETTLE_MS = 3000;
 
-// La cámara se enciende en cada foto con la resolución de la config y se apaga después:
-// cambiar la resolución en caliente (set_framesize) no tiene efecto en la OV5640, las fotos
-// seguían saliendo a 5 MP aunque el driver dijera otra cosa.
+// La cámara se enciende en cada foto ya con la resolución de la config y se apaga después.
+// Encenderla a 5 MP y cambiarla luego (set_framesize) dejaba fotogramas viejos a 5 MP en el
+// doble búfer: la primera foto tras arrancar salía a 2560x1920 aunque el driver dijera 1600x1200.
 static bool initCamera(framesize_t frameSize) {
   camera_config_t config = {};
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -172,6 +176,7 @@ static void goToSleepUntilNextCycle() {
 
 void setup() {
   Serial.begin(115200);
+  neopixelWrite(RGB_LED_PIN, 0, 0, 0);
   delay(1000);
 
   sdReady = initSdCard();

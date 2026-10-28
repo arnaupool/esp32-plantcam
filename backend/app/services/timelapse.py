@@ -10,8 +10,12 @@ from app.models.device import Device
 from app.models.photo import Photo
 from app.models.settings import Settings
 from app.models.timelapse import Timelapse, TimelapseStatus, TimelapseType
+from app.services.images import remove_photo_files
 
 TIMELAPSES_DIR = os.environ.get("TIMELAPSES_DIR", "./data/timelapses")
+
+# Rotación del dispositivo (grados en sentido horario) -> filtro de ffmpeg.
+_ROTATION_FILTERS = {90: "transpose=1", 180: "transpose=1,transpose=1", 270: "transpose=2"}
 
 
 def _photos_in_range(db: Session, device_id: str, date_from: date, date_to: date) -> list[Photo]:
@@ -25,7 +29,7 @@ def _photos_in_range(db: Session, device_id: str, date_from: date, date_to: date
     )
 
 
-def _run_ffmpeg(photos: list[Photo], output_path: str, fps: int) -> bool:
+def _run_ffmpeg(photos: list[Photo], output_path: str, fps: int, rotation: int = 0) -> bool:
     with tempfile.TemporaryDirectory() as tmp:
         for i, photo in enumerate(photos):
             if not os.path.exists(photo.file_path):
@@ -33,10 +37,13 @@ def _run_ffmpeg(photos: list[Photo], output_path: str, fps: int) -> bool:
             shutil.copyfile(photo.file_path, os.path.join(tmp, f"frame_{i:06d}.jpg"))
 
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # libx264 con yuv420p exige ancho y alto pares.
+        filters = [f for f in (_ROTATION_FILTERS.get(rotation), "scale=trunc(iw/2)*2:trunc(ih/2)*2") if f]
         cmd = [
             "ffmpeg", "-y",
             "-framerate", str(fps),
             "-i", os.path.join(tmp, "frame_%06d.jpg"),
+            "-vf", ",".join(filters),
             "-c:v", "libx264",
             "-pix_fmt", "yuv420p",
             output_path,
@@ -75,7 +82,8 @@ def generate_timelapse(
         TIMELAPSES_DIR, device_id, f"{type_.value}_{date_from.isoformat()}_{date_to.isoformat()}.mp4"
     )
 
-    ok = _run_ffmpeg(photos, output_path, fps)
+    device = db.get(Device, device_id)
+    ok = _run_ffmpeg(photos, output_path, fps, device.rotation if device else 0)
     timelapse.status = TimelapseStatus.DONE if ok else TimelapseStatus.FAILED
     timelapse.file_path = output_path if ok else None
     db.commit()
@@ -91,8 +99,7 @@ def _maybe_purge_after_weekly(db: Session, device_id: str, photos: list[Photo]) 
     if settings is None or not settings.delete_after_weekly_timelapse:
         return
     for photo in photos:
-        if os.path.exists(photo.file_path):
-            os.remove(photo.file_path)
+        remove_photo_files(photo)
         db.delete(photo)
     db.commit()
 
@@ -107,8 +114,7 @@ def purge_expired_photos(db: Session) -> int:
         cutoff = datetime.utcnow() - timedelta(days=days)
         old_photos = db.query(Photo).filter(Photo.device_id == device.id, Photo.captured_at < cutoff).all()
         for photo in old_photos:
-            if os.path.exists(photo.file_path):
-                os.remove(photo.file_path)
+            remove_photo_files(photo)
             db.delete(photo)
             deleted += 1
     db.commit()

@@ -1,5 +1,15 @@
 const API_BASE = "/api";
 
+async function errorMessage(res) {
+  try {
+    const data = await res.json();
+    if (typeof data.detail === "string") return data.detail;
+  } catch {
+    // respuesta sin JSON
+  }
+  return `Error ${res.status}`;
+}
+
 const Api = {
   getToken() {
     return localStorage.getItem("plantcam_token");
@@ -10,90 +20,93 @@ const Api = {
   clearToken() {
     localStorage.removeItem("plantcam_token");
   },
+
+  // Petición autenticada. Un 401 significa sesión caducada: se vuelve al login.
+  async request(path, { method = "GET", body, query } = {}) {
+    const url = new URL(API_BASE + path, location.origin);
+    for (const [key, value] of Object.entries(query || {})) {
+      if (value !== undefined && value !== null) url.searchParams.set(key, value);
+    }
+    const headers = { Authorization: `Bearer ${Api.getToken()}` };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+
+    const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    if (res.status === 401) {
+      Api.clearToken();
+      location.hash = "#/login";
+      throw new Error("La sesión ha caducado");
+    }
+    if (!res.ok) throw new Error(await errorMessage(res));
+    return res;
+  },
+
+  async json(path, options) {
+    return (await Api.request(path, options)).json();
+  },
+
   async login(username, password) {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) throw new Error("Credenciales incorrectas");
-    const data = await res.json();
-    Api.setToken(data.access_token);
+    if (!res.ok) throw new Error("Usuario o contraseña incorrectos");
+    Api.setToken((await res.json()).access_token);
   },
-  async listDevices() {
-    const res = await fetch(`${API_BASE}/devices`, {
-      headers: { Authorization: `Bearer ${Api.getToken()}` },
+
+  listDevices() {
+    return Api.json("/devices");
+  },
+  getDevice(id) {
+    return Api.json(`/devices/${id}`);
+  },
+  updateDevice(id, payload) {
+    return Api.json(`/devices/${id}`, { method: "PATCH", body: payload });
+  },
+  listPhotos(deviceId, start, end) {
+    return Api.json(`/devices/${deviceId}/photos`, {
+      query: { start: start.toISOString(), end: end.toISOString() },
     });
-    if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (!res.ok) throw new Error("No se pudo cargar los dispositivos");
-    return res.json();
   },
-  async getDevice(id) {
-    const res = await fetch(`${API_BASE}/devices/${id}`, {
-      headers: { Authorization: `Bearer ${Api.getToken()}` },
-    });
-    if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (!res.ok) throw new Error("No se pudo cargar el dispositivo");
-    return res.json();
+  listTimelapses(deviceId) {
+    return Api.json("/timelapses", { query: { device_id: deviceId } });
   },
-  async listPhotos(deviceId, isoDate) {
-    const url = new URL(`${API_BASE}/devices/${deviceId}/photos`, location.origin);
-    if (isoDate) url.searchParams.set("photo_date", isoDate);
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${Api.getToken()}` },
-    });
-    if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (!res.ok) throw new Error("No se pudo cargar las fotos");
-    return res.json();
-  },
-  async getPhotoImageUrl(deviceId, photoId) {
-    const res = await fetch(`${API_BASE}/devices/${deviceId}/photos/${photoId}/image`, {
-      headers: { Authorization: `Bearer ${Api.getToken()}` },
-    });
-    if (!res.ok) throw new Error("No se pudo cargar la imagen");
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  },
-  async listTimelapses(deviceId) {
-    const res = await fetch(`${API_BASE}/timelapses?device_id=${deviceId}`, {
-      headers: { Authorization: `Bearer ${Api.getToken()}` },
-    });
-    if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (!res.ok) throw new Error("No se pudo cargar los timelapses");
-    return res.json();
-  },
-  async createTimelapse(deviceId, dateFrom, dateTo, fps) {
-    const res = await fetch(`${API_BASE}/timelapses`, {
+  createTimelapse(deviceId, dateFrom, dateTo, fps) {
+    return Api.json("/timelapses", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Api.getToken()}`,
-      },
-      body: JSON.stringify({ device_id: deviceId, date_from: dateFrom, date_to: dateTo, fps }),
+      body: { device_id: deviceId, date_from: dateFrom, date_to: dateTo, fps },
     });
-    if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (!res.ok) throw new Error("No se pudo generar el timelapse");
-    return res.json();
   },
-  async getTimelapseVideoUrl(timelapseId) {
-    const res = await fetch(`${API_BASE}/timelapses/${timelapseId}/video`, {
-      headers: { Authorization: `Bearer ${Api.getToken()}` },
-    });
-    if (!res.ok) throw new Error("No se pudo cargar el vídeo");
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
+
+  // Las imágenes y vídeos necesitan la cabecera de autenticación, así que no sirve un <img src>:
+  // se descargan y se convierten en una URL local.
+  async objectUrl(path, query) {
+    const res = await Api.request(path, { query });
+    return URL.createObjectURL(await res.blob());
   },
-  async updateDevice(id, payload) {
-    const res = await fetch(`${API_BASE}/devices/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Api.getToken()}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (!res.ok) throw new Error("No se pudo guardar los ajustes");
-    return res.json();
+};
+
+// Caché de miniaturas y fotos ya descargadas. La rotación va en la clave: si cambia, se piden de nuevo.
+const ImageCache = {
+  MAX: 400,
+  urls: new Map(),
+
+  photo(device, photoId, size) {
+    const key = `${device.id}/${photoId}/${size}/${device.rotation}`;
+    if (!this.urls.has(key)) {
+      const promise = Api.objectUrl(`/devices/${device.id}/photos/${photoId}/image`, { size });
+      promise.catch(() => this.urls.delete(key));
+      this.urls.set(key, promise);
+      this.trim();
+    }
+    return this.urls.get(key);
+  },
+
+  trim() {
+    while (this.urls.size > this.MAX) {
+      const [oldestKey, promise] = this.urls.entries().next().value;
+      this.urls.delete(oldestKey);
+      promise.then((url) => URL.revokeObjectURL(url)).catch(() => {});
+    }
   },
 };

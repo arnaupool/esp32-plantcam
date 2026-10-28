@@ -1,5 +1,6 @@
 import os
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -20,8 +21,25 @@ from app.schemas import (
     PhotoUploaded,
 )
 from app.security import get_current_user, verify_provisioning_secret
+from app.services.images import image_variant
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+
+
+def _device_out(db: Session, device: Device) -> DeviceOut:
+    out = DeviceOut.model_validate(device)
+    last = db.query(Photo).filter(Photo.device_id == device.id).order_by(Photo.captured_at.desc()).first()
+    if last is not None:
+        out.last_photo_id = last.id
+        out.last_photo_at = last.captured_at
+    return out
+
+
+def _as_utc_naive(value: datetime) -> datetime:
+    """Las fechas se guardan en UTC sin zona; las que llegan del panel pueden traerla."""
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 @router.post("", response_model=DeviceCreated, status_code=201)
@@ -30,7 +48,7 @@ def create_device(payload: DeviceCreate, db: Session = Depends(get_db), _user: s
     db.add(device)
     db.commit()
     db.refresh(device)
-    return device
+    return _device_out(db, device)
 
 
 @router.post("/register", response_model=DeviceCreated, status_code=201)
@@ -46,7 +64,7 @@ def register_device(payload: DeviceRegister, db: Session = Depends(get_db)):
 
 @router.get("", response_model=list[DeviceOut])
 def list_devices(db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
-    return db.query(Device).order_by(Device.created_at).all()
+    return [_device_out(db, device) for device in db.query(Device).order_by(Device.created_at).all()]
 
 
 @router.get("/{device_id}", response_model=DeviceOut)
@@ -54,7 +72,7 @@ def get_device(device_id: str, db: Session = Depends(get_db), _user: str = Depen
     device = db.get(Device, device_id)
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
-    return device
+    return _device_out(db, device)
 
 
 @router.patch("/{device_id}", response_model=DeviceOut)
@@ -77,14 +95,22 @@ def update_device(
 def list_photos(
     device_id: str,
     photo_date: date | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
     db: Session = Depends(get_db),
     _user: str = Depends(get_current_user),
 ):
+    """Filtra por `photo_date` (día en UTC) o por `start`/`end`; el panel manda su día local."""
     query = db.query(Photo).filter(Photo.device_id == device_id)
     if photo_date is not None:
-        start = datetime.combine(photo_date, time.min)
-        end = datetime.combine(photo_date, time.max)
-        query = query.filter(Photo.captured_at >= start, Photo.captured_at <= end)
+        query = query.filter(
+            Photo.captured_at >= datetime.combine(photo_date, time.min),
+            Photo.captured_at <= datetime.combine(photo_date, time.max),
+        )
+    if start is not None:
+        query = query.filter(Photo.captured_at >= _as_utc_naive(start))
+    if end is not None:
+        query = query.filter(Photo.captured_at < _as_utc_naive(end))
     return query.order_by(Photo.captured_at.desc()).all()
 
 
@@ -92,13 +118,16 @@ def list_photos(
 def get_photo_image(
     device_id: str,
     photo_id: int,
+    size: Literal["full", "thumb"] = "full",
     db: Session = Depends(get_db),
     _user: str = Depends(get_current_user),
 ):
+    """La foto ya girada según el ajuste del dispositivo; `size=thumb` da una miniatura."""
     photo = db.get(Photo, photo_id)
     if photo is None or photo.device_id != device_id or not os.path.exists(photo.file_path):
         raise HTTPException(status_code=404, detail="Photo not found")
-    return FileResponse(photo.file_path, media_type="image/jpeg")
+    device = db.get(Device, device_id)
+    return FileResponse(image_variant(photo, device.rotation, size), media_type="image/jpeg")
 
 
 @router.get("/{device_id}/config", response_model=DeviceConfig)

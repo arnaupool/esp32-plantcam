@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -39,7 +40,10 @@ class DeviceOut(BaseModel):
     resolution: str
     is_active: bool
     retention_days: int | None = None
+    rotation: int = 0
     last_seen_at: datetime | None = None
+    last_photo_id: int | None = None
+    last_photo_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -54,6 +58,7 @@ class DeviceUpdate(BaseModel):
     resolution: str | None = None
     is_active: bool | None = None
     retention_days: int | None = Field(default=None, ge=1)
+    rotation: Literal[0, 90, 180, 270] | None = None
 
 
 class DeviceConfig(BaseModel):

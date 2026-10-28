@@ -55,6 +55,25 @@ jobs:
             -H 'content-type: application/json' -d '{"provisioning_secret":"ci-prov","name":"api"}'
           echo "--- ffmpeg dentro de la imagen"
           docker exec pc ffmpeg -version | head -1
+          echo "--- foto real: subida, rotación 90 y miniatura girada (Pillow)"
+          REG=$(curl -fsS -X POST http://localhost:8000/devices/register \
+            -H 'content-type: application/json' -d '{"provisioning_secret":"ci-prov","name":"foto"}')
+          DID=$(echo "$REG" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+          KEY=$(echo "$REG" | python3 -c "import sys,json;print(json.load(sys.stdin)['api_key'])")
+          docker exec pc ffmpeg -loglevel error -f lavfi -i testsrc=size=640x480 -frames:v 1 /tmp/t.jpg
+          docker cp pc:/tmp/t.jpg t.jpg
+          curl -fsS -X POST http://localhost:8000/devices/$DID/photos -H "X-API-Key: $KEY" -F "file=@t.jpg;type=image/jpeg"
+          TOKEN=$(curl -fsS -X POST http://localhost:8000/api/auth/login \
+            -H 'content-type: application/json' -d '{"username":"admin","password":"ci"}' \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+          curl -fsS -X PATCH http://localhost:8000/api/devices/$DID -H "Authorization: Bearer $TOKEN" \
+            -H 'content-type: application/json' -d '{"rotation":90}' > /dev/null
+          PHOTO=$(curl -fsS http://localhost:8000/api/devices/$DID/photos -H "Authorization: Bearer $TOKEN" \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['id'])")
+          curl -fsS "http://localhost:8000/api/devices/$DID/photos/$PHOTO/image?size=thumb" \
+            -H "Authorization: Bearer $TOKEN" -o thumb.jpg
+          # Ancho y alto de la cabecera SOF0 del JPEG: 640x480 girado 90° y reducido a 480 px queda en 360x480.
+          python3 -c "import struct;d=open('thumb.jpg','rb').read();i=d.find(bytes([255,192]));h,w=struct.unpack('>HH',d[i+5:i+9]);print('miniatura',w,'x',h);assert (w,h)==(360,480)"
       - name: La imagen no arranca sin secretos
         run: |
           if docker run --rm plantcam:ci; then

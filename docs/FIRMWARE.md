@@ -108,6 +108,8 @@ para borrar dispositivos).
 | Pasan 5 minutos sin completar el portal | Se reinicia solo tras el intervalo (10 minutos); para no esperar, pulsa RESET y vuelve al paso 7 |
 | `Failed to send chunk!` y `HTTP -3`, o sale "En línea" pero no llegan fotos | Cobertura WiFi insuficiente: con -70 dBm las fotos no llegan, aunque las peticiones pequeñas sí. Acércalo al router o usa la red de 2,4 GHz de un repetidor (reset con BOOT y elígela en el portal) |
 | Bandas verticales en las fotos | Poca luz: el sensor sube la ganancia. Con luz de día deberían desaparecer o notarse mucho menos |
+| Fotos giradas o boca abajo | Panel, Ajustes, **Girar la imagen**. Lo aplica el servidor; no hace falta tocar la cámara ni reflashear |
+| Hace fotos fuera del horario (de noche) | Firmware anterior al 28 de octubre de 2026: si la hora por internet tardaba en llegar al arrancar, ignoraba el horario. Flashea el firmware actual |
 | `Fallo al auto-registrar ... HTTP 401` | `PROVISIONING_SECRET` distinto entre `config.h` y el servidor. Corrige uno y, si cambias el firmware, reflashea. Después RESET |
 | `Fallo al auto-registrar ... HTTP 404` o error de conexión | URL del servidor mal (IP, puerto o dominio equivocados). Reset de fábrica y repite el paso 7 |
 | Fotos fuera de horario o ventana desplazada una hora | `TIMEZONE_OFFSET_SECONDS` (cambio de horario) |

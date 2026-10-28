@@ -78,7 +78,8 @@ Cuando se sube un cambio a GitHub, la imagen nueva está lista en unos 5 minutos
 Pestaña Docker, icono de plantcam, **Edit** y **Apply** sin cambiar nada: Unraid descarga la imagen nueva y recrea el
 contenedor. Otra forma: activa **Advanced View** (arriba a la derecha) y pulsa **force update** en su fila.
 
-La base de datos se migra sola al arrancar. Los datos viven en `/mnt/user/appdata/plantcam` y no se tocan al
+La base de datos se migra sola al arrancar. Las miniaturas y las fotos giradas se guardan en `cache/`, dentro de la
+misma carpeta; se pueden borrar sin perder nada porque se regeneran. Los datos viven en `/mnt/user/appdata/plantcam` y no se tocan al
 actualizar.
 
 ## Datos y copias de seguridad

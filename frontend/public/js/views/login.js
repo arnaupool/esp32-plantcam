@@ -1,29 +1,36 @@
 function renderLogin(root) {
   root.innerHTML = `
-    <div class="card" style="max-width:320px;margin:4rem auto;">
-      <h1>PlantCam</h1>
-      <form id="login-form">
-        <input type="text" name="username" placeholder="Usuario" autocomplete="username" required />
-        <input type="password" name="password" placeholder="Contraseña" autocomplete="current-password" required />
-        <button type="submit">Entrar</button>
-        <div class="error" id="login-error"></div>
-      </form>
+    <div class="login-wrap">
+      <div class="card login-card">
+        <div class="brand">${ICONS.leaf}<span>PlantCam</span></div>
+        <p class="sub">Timelapses de tus plantas</p>
+        <form id="login-form">
+          <label class="field"><span>Usuario</span>
+            <input name="username" autocomplete="username" required autofocus />
+          </label>
+          <label class="field"><span>Contraseña</span>
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button class="btn" type="submit">Entrar</button>
+          <div class="error" id="login-error" role="alert"></div>
+        </form>
+      </div>
     </div>
   `;
 
   const form = document.getElementById("login-form");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const username = form.username.value.trim();
-    const password = form.password.value;
+    const button = form.querySelector("button");
     const errorEl = document.getElementById("login-error");
     errorEl.textContent = "";
-
+    button.disabled = true;
     try {
-      await Api.login(username, password);
+      await Api.login(form.username.value.trim(), form.password.value);
       location.hash = "#/dashboard";
     } catch (err) {
       errorEl.textContent = err.message;
+      button.disabled = false;
     }
   });
 }

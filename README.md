@@ -9,6 +9,8 @@ genera timelapses diarios y semanales y los muestra en un panel web. Pensado par
   servidor. Puede ir enchufado o con pilas (duerme entre fotos).
 - Los ajustes (intervalo, horario, resolución, modo de energía) se cambian desde el panel; el dispositivo los lee antes
   de cada foto.
+- En el panel, cada dispositivo tiene su galería por días con la hora de cada foto, un visor a pantalla completa y un
+  ajuste para girar la imagen si la cámara está montada de lado (lo aplica el servidor; el original no se toca).
 - El servidor genera un timelapse por día (00:05) y otro por semana (domingo 00:15) con ffmpeg, y también bajo demanda
   desde el panel. Las fotos originales se purgan tras el timelapse semanal.
 - Un dispositivo nuevo se da de alta solo en su primer arranque: configuras su WiFi desde el móvil y listo.
@@ -28,7 +30,7 @@ flowchart LR
 | Carpeta | Qué es |
 |---------|--------|
 | `firmware/` | PlatformIO, framework Arduino, ESP32-S3 (16 MB de flash, 8 MB de PSRAM) |
-| `backend/` | FastAPI, SQLAlchemy, SQLite, Alembic, APScheduler, ffmpeg. También sirve el panel |
+| `backend/` | FastAPI, SQLAlchemy, SQLite, Alembic, APScheduler, ffmpeg y Pillow. También sirve el panel |
 | `frontend/public/` | Panel en HTML y JavaScript sin build |
 | `unraid/` | Plantilla del formulario de Docker de Unraid |
 | `.github/workflows/` | Prueba y publica la imagen Docker en ghcr.io |
@@ -59,7 +61,8 @@ y `.venv/Scripts/python -m platformio run` compila sin necesitar la placa.
 
 - Necesita buena cobertura WiFi de 2,4 GHz: con señal débil (-70 dBm en la primera prueba) las fotos no llegan, aunque
   el dispositivo salga "En línea".
-- Con poca luz las fotos muestran bandas verticales.
+- Con poca luz las fotos muestran bandas verticales y ruido.
+- Los timelapses ya generados no cambian si después se cambia la rotación: hay que volver a generarlos.
 - El reset de fábrica (BOOT) borra también el alta: el dispositivo reaparece en el panel como uno nuevo.
 - No hay botón para borrar dispositivos, ni pantalla para cambiar la retención de fotos.
 - La zona horaria del firmware es un valor fijo sin cambio de horario automático.

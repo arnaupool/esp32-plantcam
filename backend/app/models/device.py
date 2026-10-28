@@ -25,6 +25,9 @@ class Device(Base):
     schedule_start: Mapped[time] = mapped_column(Time, default=time(7, 0))
     schedule_end: Mapped[time] = mapped_column(Time, default=time(21, 0))
     resolution: Mapped[str] = mapped_column(String(20), default="UXGA")
+    # Grados (0, 90, 180, 270) que hay que girar la foto en sentido horario para verla derecha.
+    # La aplica el servidor al mostrarla y en los timelapses; el original no se toca.
+    rotation: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

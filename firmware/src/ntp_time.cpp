@@ -4,24 +4,33 @@
 
 #include "config.h"
 
-static bool timeSynced = false;
+// Cualquier hora anterior a noviembre de 2023 es el reloj sin sincronizar (cuenta desde 1970).
+static const time_t MIN_VALID_EPOCH = 1700000000;
+
+// Se mira el reloj en cada consulta, no una bandera fijada al arrancar: SNTP sigue intentándolo en
+// segundo plano, y si la primera respuesta tardaba más que el timeout de syncTime() el horario
+// quedaba ignorado para siempre (fail-open) y la placa hacía fotos toda la noche.
+static bool clockIsSet() { return time(nullptr) > MIN_VALID_EPOCH; }
 
 bool syncTime(uint32_t timeoutMs) {
   configTime(TIMEZONE_OFFSET_SECONDS, 0, "pool.ntp.org", "time.nist.gov");
 
-  time_t now = time(nullptr);
   uint32_t start = millis();
-  while (now < 8 * 3600 * 2 && millis() - start < timeoutMs) {  // esperar a que deje de ser epoch~1970
+  while (!clockIsSet() && millis() - start < timeoutMs) {
     delay(200);
-    now = time(nullptr);
   }
 
-  timeSynced = now > 8 * 3600 * 2;
-  return timeSynced;
+  LocalTime now;
+  if (getLocalTime2(now)) {
+    Serial.printf("Hora sincronizada: %02d:%02d\n", now.hour, now.minute);
+    return true;
+  }
+  Serial.println("Hora aún sin sincronizar; se seguirá intentando en segundo plano.");
+  return false;
 }
 
 bool getLocalTime2(LocalTime &out) {
-  if (!timeSynced) return false;
+  if (!clockIsSet()) return false;
   time_t now = time(nullptr);
   struct tm tmInfo;
   localtime_r(&now, &tmInfo);
