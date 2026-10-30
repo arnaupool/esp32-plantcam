@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,18 @@ def create_timelapse(payload: TimelapseCreate, db: Session = Depends(get_db), _u
     return generate_timelapse(
         db, payload.device_id, payload.date_from, payload.date_to, TimelapseType.MANUAL, payload.fps
     )
+
+
+@router.delete("/{timelapse_id}", status_code=204)
+def delete_timelapse(timelapse_id: int, db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
+    timelapse = db.get(Timelapse, timelapse_id)
+    if timelapse is None:
+        raise HTTPException(status_code=404, detail="Timelapse not found")
+    if timelapse.file_path and os.path.exists(timelapse.file_path):
+        os.remove(timelapse.file_path)
+    db.delete(timelapse)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/{timelapse_id}/video")

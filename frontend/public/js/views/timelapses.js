@@ -12,6 +12,94 @@ function timelapseRange(t) {
   return `${from} a ${fmtShortDate.format(dayRange(t.date_to)[0])}`;
 }
 
+function timelapseItem(t) {
+  const [label, kind] = TIMELAPSE_STATUS[t.status] || [t.status, ""];
+  const ready = t.status === "done";
+  return `
+    <article class="card tl-item" data-id="${t.id}">
+      <div class="tl-head">
+        <span class="pill plain">${TIMELAPSE_TYPE[t.type] || esc(t.type)}</span>
+        <span class="range">${timelapseRange(t)}</span>
+        <span class="muted">${t.fps} fps</span>
+        <span class="pill ${kind}">${label}</span>
+        <div class="actions">
+          ${ready ? `<button class="btn btn-small" data-action="play">Ver</button>
+                     <button class="btn btn-ghost btn-small" data-action="download">Descargar</button>` : ""}
+          <button class="btn btn-ghost btn-small" data-action="delete">Borrar</button>
+        </div>
+      </div>
+    </article>`;
+}
+
+// Ver y Cerrar: el vídeo se descarga al abrirlo y se libera al cerrarlo.
+function bindPlay(item, timelapse, button) {
+  let videoUrl = null;
+  button.addEventListener("click", async () => {
+    const open = item.querySelector("video");
+    if (open) {
+      open.remove();
+      URL.revokeObjectURL(videoUrl);
+      button.textContent = "Ver";
+      return;
+    }
+    button.disabled = true;
+    try {
+      videoUrl = await Api.objectUrl(`/timelapses/${timelapse.id}/video`);
+      item.insertAdjacentHTML("beforeend", `<video src="${videoUrl}" controls autoplay playsinline></video>`);
+      button.textContent = "Cerrar";
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+function bindDownload(timelapse, button) {
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      const url = await Api.objectUrl(`/timelapses/${timelapse.id}/video`);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `plantcam_${timelapse.type}_${timelapse.date_from}_${timelapse.date_to}.mp4`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+// Borrar pide un segundo clic en 4 segundos, en lugar de un diálogo del navegador.
+function bindDelete(timelapse, button, onDeleted) {
+  let armedTimer = null;
+  button.addEventListener("click", async () => {
+    if (!armedTimer) {
+      button.textContent = "¿Borrar? Pulsa otra vez";
+      button.classList.replace("btn-ghost", "btn-danger");
+      armedTimer = setTimeout(() => {
+        armedTimer = null;
+        button.textContent = "Borrar";
+        button.classList.replace("btn-danger", "btn-ghost");
+      }, 4000);
+      return;
+    }
+    clearTimeout(armedTimer);
+    button.disabled = true;
+    try {
+      await Api.deleteTimelapse(timelapse.id);
+      toast("Timelapse borrado");
+      onDeleted();
+    } catch (err) {
+      toast(err.message, "error");
+      button.disabled = false;
+    }
+  });
+}
+
 async function renderTimelapses(slot, device) {
   const today = localIsoDate(new Date());
   slot.innerHTML = `
@@ -25,7 +113,7 @@ async function renderTimelapses(slot, device) {
         </div>
         <div class="form-actions">
           <button class="btn" type="submit">Generar ahora</button>
-          <span class="muted" id="generate-status"></span>
+          <span class="muted" id="generate-status">Solo entran las fotos dentro del horario del dispositivo.</span>
         </div>
       </form>
     </section>
@@ -45,53 +133,23 @@ async function renderTimelapses(slot, device) {
       return;
     }
     if (timelapses.length === 0) {
-      list.innerHTML = `<div class="empty">Aún no hay timelapses. Se generan solos cada noche (diario) y los domingos (semanal), o puedes crear uno arriba.</div>`;
+      const auto = [device.auto_daily_timelapse && "cada noche (diario)", device.auto_weekly_timelapse && "los domingos (semanal)"]
+        .filter(Boolean)
+        .join(" y ");
+      list.innerHTML = `<div class="empty">Aún no hay timelapses. ${
+        auto ? `Se generan solos ${auto}, o` : "Los automáticos están desactivados en Ajustes;"
+      } puedes crear uno arriba.</div>`;
       return;
     }
 
-    list.innerHTML = `<div class="tl-list">${timelapses
-      .map((t) => {
-        const [label, kind] = TIMELAPSE_STATUS[t.status] || [t.status, ""];
-        const ready = t.status === "done";
-        return `
-          <article class="card tl-item" data-id="${t.id}">
-            <div class="tl-head">
-              <span class="pill plain">${TIMELAPSE_TYPE[t.type] || esc(t.type)}</span>
-              <span class="range">${timelapseRange(t)}</span>
-              <span class="muted">${t.fps} fps</span>
-              <span class="pill ${kind}">${label}</span>
-              <div class="actions">
-                ${ready ? `<button class="btn btn-small" data-action="play">Ver</button>
-                           <button class="btn btn-ghost btn-small" data-action="download">Descargar</button>` : ""}
-              </div>
-            </div>
-          </article>`;
-      })
-      .join("")}</div>`;
-
+    list.innerHTML = `<div class="tl-list">${timelapses.map(timelapseItem).join("")}</div>`;
     list.querySelectorAll(".tl-item").forEach((item) => {
       const timelapse = timelapses.find((t) => String(t.id) === item.dataset.id);
-      item.querySelectorAll("[data-action]").forEach((button) =>
-        button.addEventListener("click", async () => {
-          button.disabled = true;
-          try {
-            const url = await Api.objectUrl(`/timelapses/${timelapse.id}/video`);
-            if (button.dataset.action === "download") {
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `plantcam_${timelapse.type}_${timelapse.date_from}_${timelapse.date_to}.mp4`;
-              a.click();
-              button.disabled = false;
-            } else {
-              item.insertAdjacentHTML("beforeend", `<video src="${url}" controls autoplay playsinline></video>`);
-              button.remove();
-            }
-          } catch (err) {
-            toast(err.message, "error");
-            button.disabled = false;
-          }
-        })
-      );
+      const play = item.querySelector('[data-action="play"]');
+      const download = item.querySelector('[data-action="download"]');
+      if (play) bindPlay(item, timelapse, play);
+      if (download) bindDownload(timelapse, download);
+      bindDelete(timelapse, item.querySelector('[data-action="delete"]'), load);
     });
   }
 
@@ -100,6 +158,7 @@ async function renderTimelapses(slot, device) {
     e.preventDefault();
     const button = form.querySelector("button");
     const status = document.getElementById("generate-status");
+    const hint = status.textContent;
     button.disabled = true;
     status.textContent = "Generando, puede tardar un poco...";
     try {
@@ -110,7 +169,7 @@ async function renderTimelapses(slot, device) {
       toast(err.message, "error");
     } finally {
       button.disabled = false;
-      status.textContent = "";
+      status.textContent = hint;
     }
   });
 

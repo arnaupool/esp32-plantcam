@@ -28,6 +28,9 @@ class Device(Base):
     # Grados (0, 90, 180, 270) que hay que girar la foto en sentido horario para verla derecha.
     # La aplica el servidor al mostrarla y en los timelapses; el original no se toca.
     rotation: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Timelapses automáticos del cron del servidor. El semanal además borra las fotos de esa semana al terminar.
+    auto_daily_timelapse: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    auto_weekly_timelapse: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

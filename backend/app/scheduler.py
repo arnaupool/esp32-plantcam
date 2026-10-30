@@ -14,7 +14,8 @@ def _run_daily_timelapses():
     yesterday = date.today() - timedelta(days=1)
     db = SessionLocal()
     try:
-        for device in db.query(Device).filter(Device.is_active.is_(True)).all():
+        devices = db.query(Device).filter(Device.is_active.is_(True), Device.auto_daily_timelapse.is_(True))
+        for device in devices.all():
             generate_timelapse(db, device.id, yesterday, yesterday, TimelapseType.DAILY)
     finally:
         db.close()
@@ -25,7 +26,8 @@ def _run_weekly_timelapses():
     week_start = today - timedelta(days=7)
     db = SessionLocal()
     try:
-        for device in db.query(Device).filter(Device.is_active.is_(True)).all():
+        devices = db.query(Device).filter(Device.is_active.is_(True), Device.auto_weekly_timelapse.is_(True))
+        for device in devices.all():
             generate_timelapse(db, device.id, week_start, today - timedelta(days=1), TimelapseType.WEEKLY)
     finally:
         db.close()

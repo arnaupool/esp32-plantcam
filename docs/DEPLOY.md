@@ -100,7 +100,9 @@ Política de retención por defecto: las fotos originales se borran al generar e
 
 ## Alternativa con Docker Compose
 
-Si prefieres Compose: copia `.env.example` a `.env`, rellena los cuatro valores y ejecuta `docker compose up -d`. El
+Si prefieres Compose: copia `.env.example` a `.env`, rellena los cuatro valores y ejecuta `docker compose up -d`.
+Añade también `TZ` (por ejemplo `TZ=Europe/Madrid`) al servicio: el horario de las fotos usa la hora local del
+servidor. En Unraid no hace falta, la pone sola. El
 `docker-compose.yml` usa la misma imagen. Para construirla en local en lugar de descargarla:
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 

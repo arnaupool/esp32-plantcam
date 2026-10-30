@@ -71,6 +71,9 @@ const Api = {
   listTimelapses(deviceId) {
     return Api.json("/timelapses", { query: { device_id: deviceId } });
   },
+  deleteTimelapse(id) {
+    return Api.request(`/timelapses/${id}`, { method: "DELETE" });
+  },
   createTimelapse(deviceId, dateFrom, dateTo, fps) {
     return Api.json("/timelapses", {
       method: "POST",

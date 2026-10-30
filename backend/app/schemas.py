@@ -41,6 +41,8 @@ class DeviceOut(BaseModel):
     is_active: bool
     retention_days: int | None = None
     rotation: int = 0
+    auto_daily_timelapse: bool = True
+    auto_weekly_timelapse: bool = True
     last_seen_at: datetime | None = None
     last_photo_id: int | None = None
     last_photo_at: datetime | None = None
@@ -59,6 +61,8 @@ class DeviceUpdate(BaseModel):
     is_active: bool | None = None
     retention_days: int | None = Field(default=None, ge=1)
     rotation: Literal[0, 90, 180, 270] | None = None
+    auto_daily_timelapse: bool | None = None
+    auto_weekly_timelapse: bool | None = None
 
 
 class DeviceConfig(BaseModel):

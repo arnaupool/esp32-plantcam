@@ -20,8 +20,9 @@ alta, config, captura y subida. La subida falló con RSSI -70 dBm (escritorio de
 ## Pendiente
 
 - **Flashear el firmware nuevo** en la placa (la que funciona lleva una versión anterior): espera de 3 s antes de
-  disparar, resolución correcta en la primera foto, arreglo del horario (hacía fotos de noche) y LED RGB apagado.
-  Necesita que el usuario la traiga al PC.
+  disparar, resolución correcta en la primera foto, arreglo del horario y LED RGB apagado. Necesita que el usuario
+  la traiga al PC. Mientras tanto, el horario lo hace cumplir el servidor (ver "Horario" en endpoints): con el
+  firmware viejo la placa hizo fotos 24 horas al día del 27 al 30 de octubre de 2026.
 - **Actualizar el contenedor en Unraid** tras cada push que toque `backend/` o `frontend/` (Edit y Apply). Después,
   en Ajustes de `PlantCam-72E0`, poner **Girar la imagen: 90° a la izquierda** (la cámara está montada de lado).
 - Si con luz de día las fotos siguen con bandas o colores raros: ajustar el sensor (ganancia máxima, balance de
@@ -96,7 +97,7 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
 - Panel (JWT, `POST /auth/login`): `POST/GET /devices`, `GET/PATCH /devices/{id}`,
   `GET /devices/{id}/photos[?start=&end=]` (o `?photo_date=`, día en UTC),
   `GET /devices/{id}/photos/{photo_id}/image[?size=thumb]`, `GET/POST /timelapses` (`?device_id=`),
-  `GET /timelapses/{id}/video`.
+  `GET /timelapses/{id}/video`, `DELETE /timelapses/{id}` (borra también el mp4).
   - `GET /devices` y `GET /devices/{id}` incluyen `last_photo_id` y `last_photo_at` (portada del dashboard).
   - `start`/`end` admiten zona horaria: el panel manda el día local del navegador y el backend lo pasa a UTC.
   - `image` devuelve la foto girada según `Device.rotation`; `size=thumb` da una miniatura de 480 px. Las variantes
@@ -105,6 +106,14 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
 - Alta de dispositivo (sin JWT, con `PROVISIONING_SECRET`): `POST /devices/register`. Crea el dispositivo activo con
   nombre `PlantCam-XXXX` y valores por defecto (enchufado, 600 s, 07:00 a 21:00, UXGA, sin girar).
 - Dispositivo (cabecera `X-API-Key`): `GET /devices/{id}/config`, `POST /devices/{id}/photos` (multipart).
+- **Horario**: `GET /devices/{id}/config` devuelve `is_active: false` fuera de la ventana horaria, calculada con la
+  hora local del servidor (`services/schedule.py`). Así se cumple aunque el reloj de la placa falle, el firmware viejo
+  lo respeta sin reflashear, y el cambio de hora lo resuelve el servidor. Depende de la variable `TZ` del contenedor:
+  Unraid la pone sola (en el del usuario vale `Europe/Paris`); con Compose hay que ponerla.
+- **Timelapses**: los días son días locales (convertidos a UTC al consultar) y solo entran las fotos dentro del
+  horario del dispositivo, así que regenerar un día con fotos nocturnas antiguas da un vídeo limpio. Automáticos por
+  dispositivo con `auto_daily_timelapse` y `auto_weekly_timelapse` (migración `b3d81f6a2c47`, ambos activados por
+  defecto); el cron solo genera los de los dispositivos que los tienen activados.
 - **Rotación** (`Device.rotation`: 0, 90, 180 o 270, grados en sentido horario; migración `7a1c2e9d4b10`): la aplica
   el servidor, nunca el firmware. La OV5640 solo sabe voltear (180°) y girar 90° en la placa exigiría recomprimir cada
   JPEG. Se aplica al servir imágenes y al generar timelapses (`transpose` de ffmpeg); el original no se toca. Los
@@ -132,6 +141,7 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
   que solo se ponía si NTP respondía en los 10 s de `syncTime()`; si tardaba más, el horario quedaba ignorado para
   siempre y la placa hacía fotos toda la noche (pasó la noche del 27 al 28 de octubre de 2026).
 - **Fail-open de horario**: sin hora todavía, `isWithinSchedule()` devuelve true (mejor fotos de más que ninguna).
+  Da igual en la práctica: el servidor responde `is_active: false` fuera del horario y la placa no dispara.
 - **WiFi**: tras conectar se desactiva el modo ahorro (`WiFi.setSleep(false)`); en el S3 viene activado por defecto
   (`WIFI_PS_MIN_MODEM`, en `WiFiGeneric.cpp`). La subida (`backend_client.cpp`) hace hasta 2 intentos, pero solo si la
   petición no llegó entera, para no duplicar fotos. Registra el RSSI y los milisegundos de cada intento.

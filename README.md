@@ -12,7 +12,10 @@ genera timelapses diarios y semanales y los muestra en un panel web. Pensado par
 - En el panel, cada dispositivo tiene su galería por días con la hora de cada foto, un visor a pantalla completa y un
   ajuste para girar la imagen si la cámara está montada de lado (lo aplica el servidor; el original no se toca).
 - El servidor genera un timelapse por día (00:05) y otro por semana (domingo 00:15) con ffmpeg, y también bajo demanda
-  desde el panel. Las fotos originales se purgan tras el timelapse semanal.
+  desde el panel; los automáticos se pueden desactivar por dispositivo y los timelapses se pueden borrar. Solo entran
+  las fotos dentro del horario. Las fotos originales se purgan tras el timelapse semanal.
+- El horario lo hace cumplir el servidor con su hora local: aunque el reloj de la placa falle, fuera de horario no
+  dispara.
 - Un dispositivo nuevo se da de alta solo en su primer arranque: configuras su WiFi desde el móvil y listo.
 
 ```mermaid

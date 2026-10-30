@@ -57,6 +57,22 @@ function renderSettings(slot, device, onSaved) {
         </div>
       </section>
 
+      <section class="form-section">
+        <h2>Timelapses automáticos</h2>
+        <label class="switch">
+          <input type="checkbox" name="auto_daily_timelapse" ${device.auto_daily_timelapse ? "checked" : ""} />
+          Uno cada día, a las 00:05, con las fotos del día anterior
+        </label>
+        <label class="switch" style="margin-top:0.75rem">
+          <input type="checkbox" name="auto_weekly_timelapse" ${device.auto_weekly_timelapse ? "checked" : ""} />
+          Uno cada semana, los domingos a las 00:15
+        </label>
+        <p class="muted" style="margin:0.6rem 0 0;font-size:0.85rem">
+          Al terminar el semanal se borran las fotos originales de esa semana. Si lo desactivas, las fotos se borran
+          igualmente a los 14 días. Desde la pestaña Timelapses siempre puedes generar uno a mano.
+        </p>
+      </section>
+
       <div class="form-actions">
         <button class="btn" type="submit">Guardar</button>
         <span class="muted">El dispositivo aplica los cambios en su próxima foto.</span>
@@ -79,6 +95,8 @@ function renderSettings(slot, device, onSaved) {
         schedule_end: form.schedule_end.value + ":00",
         resolution: form.resolution.value,
         rotation: Number(form.rotation.value),
+        auto_daily_timelapse: form.auto_daily_timelapse.checked,
+        auto_weekly_timelapse: form.auto_weekly_timelapse.checked,
       });
       toast("Ajustes guardados");
       onSaved(updated);

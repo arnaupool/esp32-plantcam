@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app.models.photo import Photo
 from app.models.settings import Settings
 from app.models.timelapse import Timelapse, TimelapseStatus, TimelapseType
 from app.services.images import remove_photo_files
+from app.services.schedule import local_day_bounds_utc, utc_naive_to_local, within_schedule
 
 TIMELAPSES_DIR = os.environ.get("TIMELAPSES_DIR", "./data/timelapses")
 
@@ -18,15 +19,24 @@ TIMELAPSES_DIR = os.environ.get("TIMELAPSES_DIR", "./data/timelapses")
 _ROTATION_FILTERS = {90: "transpose=1", 180: "transpose=1,transpose=1", 270: "transpose=2"}
 
 
-def _photos_in_range(db: Session, device_id: str, date_from: date, date_to: date) -> list[Photo]:
-    start = datetime.combine(date_from, time.min)
-    end = datetime.combine(date_to, time.max)
-    return (
+def _photos_in_range(db: Session, device: Device, date_from: date, date_to: date) -> list[Photo]:
+    """Fotos de esos días locales que caen dentro del horario del dispositivo.
+
+    Se descartan las de fuera de horario: así el vídeo sale limpio aunque haya fotos nocturnas guardadas
+    (las hacía el firmware anterior al 28 de octubre de 2026 cuando ignoraba el horario)."""
+    start, _ = local_day_bounds_utc(date_from)
+    _, end = local_day_bounds_utc(date_to)
+    photos = (
         db.query(Photo)
-        .filter(Photo.device_id == device_id, Photo.captured_at >= start, Photo.captured_at <= end)
+        .filter(Photo.device_id == device.id, Photo.captured_at >= start, Photo.captured_at < end)
         .order_by(Photo.captured_at)
         .all()
     )
+    return [
+        p
+        for p in photos
+        if within_schedule(device.schedule_start, device.schedule_end, utc_naive_to_local(p.captured_at))
+    ]
 
 
 def _run_ffmpeg(photos: list[Photo], output_path: str, fps: int, rotation: int = 0) -> bool:
@@ -72,7 +82,8 @@ def generate_timelapse(
     db.commit()
     db.refresh(timelapse)
 
-    photos = _photos_in_range(db, device_id, date_from, date_to)
+    device = db.get(Device, device_id)
+    photos = _photos_in_range(db, device, date_from, date_to) if device else []
     if not photos:
         timelapse.status = TimelapseStatus.FAILED
         db.commit()
@@ -82,8 +93,7 @@ def generate_timelapse(
         TIMELAPSES_DIR, device_id, f"{type_.value}_{date_from.isoformat()}_{date_to.isoformat()}.mp4"
     )
 
-    device = db.get(Device, device_id)
-    ok = _run_ffmpeg(photos, output_path, fps, device.rotation if device else 0)
+    ok = _run_ffmpeg(photos, output_path, fps, device.rotation)
     timelapse.status = TimelapseStatus.DONE if ok else TimelapseStatus.FAILED
     timelapse.file_path = output_path if ok else None
     db.commit()

@@ -22,6 +22,7 @@ from app.schemas import (
 )
 from app.security import get_current_user, verify_provisioning_secret
 from app.services.images import image_variant
+from app.services.schedule import within_schedule
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -134,7 +135,12 @@ def get_photo_image(
 def get_device_config(device: Device = Depends(get_device_by_path_id_and_key), db: Session = Depends(get_db)):
     device.last_seen_at = datetime.utcnow()
     db.commit()
-    return device
+    # El servidor también decide si toca foto ahora: fuera del horario responde inactivo. Así el horario se
+    # cumple aunque el reloj de la placa esté mal (el firmware anterior al 28 de octubre de 2026 lo ignoraba
+    # si NTP tardaba en responder) y el horario sigue la hora local del servidor, cambio de hora incluido.
+    config = DeviceConfig.model_validate(device)
+    config.is_active = device.is_active and within_schedule(device.schedule_start, device.schedule_end)
+    return config
 
 
 @router.post("/{device_id}/photos", response_model=PhotoUploaded, status_code=201)
