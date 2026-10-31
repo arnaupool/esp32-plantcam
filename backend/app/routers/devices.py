@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,11 +18,13 @@ from app.schemas import (
     DeviceOut,
     DeviceRegister,
     DeviceUpdate,
+    PhotoDelete,
     PhotoOut,
+    PhotosDeleted,
     PhotoUploaded,
 )
 from app.security import get_current_user, verify_provisioning_secret
-from app.services.images import image_variant
+from app.services.images import image_variant, remove_photo_files
 from app.services.schedule import within_schedule
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -33,6 +36,9 @@ def _device_out(db: Session, device: Device) -> DeviceOut:
     if last is not None:
         out.last_photo_id = last.id
         out.last_photo_at = last.captured_at
+    count, total = db.query(func.count(Photo.id), func.sum(Photo.file_size)).filter(Photo.device_id == device.id).one()
+    out.photo_count = count
+    out.photos_bytes = total or 0
     return out
 
 
@@ -89,7 +95,7 @@ def update_device(
 
     db.commit()
     db.refresh(device)
-    return device
+    return _device_out(db, device)
 
 
 @router.get("/{device_id}/photos", response_model=list[PhotoOut])
@@ -131,6 +137,29 @@ def get_photo_image(
     return FileResponse(image_variant(photo, device.rotation, size), media_type="image/jpeg")
 
 
+def _delete_photos(db: Session, device_id: str, ids: list[int]) -> int:
+    photos = db.query(Photo).filter(Photo.device_id == device_id, Photo.id.in_(ids)).all()
+    for photo in photos:
+        remove_photo_files(photo)
+        db.delete(photo)
+    db.commit()
+    return len(photos)
+
+
+@router.delete("/{device_id}/photos/{photo_id}", status_code=204)
+def delete_photo(device_id: str, photo_id: int, db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
+    if _delete_photos(db, device_id, [photo_id]) == 0:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+
+@router.post("/{device_id}/photos/delete", response_model=PhotosDeleted)
+def delete_photos(
+    device_id: str, payload: PhotoDelete, db: Session = Depends(get_db), _user: str = Depends(get_current_user)
+):
+    """Borrado en bloque desde la galería (fotos seleccionadas o un día entero). Ignora ids de otro dispositivo."""
+    return PhotosDeleted(deleted=_delete_photos(db, device_id, payload.ids))
+
+
 @router.get("/{device_id}/config", response_model=DeviceConfig)
 def get_device_config(device: Device = Depends(get_device_by_path_id_and_key), db: Session = Depends(get_db)):
     device.last_seen_at = datetime.utcnow()
@@ -153,7 +182,8 @@ async def upload_photo(
     device_dir = os.path.join(PHOTOS_DIR, device.id, captured_at.strftime("%Y-%m-%d"))
     os.makedirs(device_dir, exist_ok=True)
 
-    filename = captured_at.strftime("%H%M%S") + "_" + file.filename
+    # Con microsegundos: dos subidas en el mismo segundo no comparten archivo (borrar una no se lleva la otra).
+    filename = captured_at.strftime("%H%M%S%f") + "_" + os.path.basename(file.filename or "photo.jpg")
     file_path = os.path.join(device_dir, filename)
 
     contents = await file.read()

@@ -1,5 +1,8 @@
 // Visor a pantalla completa. Flechas del teclado o deslizar para cambiar de foto, Esc para cerrar.
-function openLightbox(device, photos, startIndex) {
+// `photos` es una copia: borrar una foto aquí la quita del visor y avisa a la galería con onDeleted al cerrar.
+function openLightbox(device, sourcePhotos, startIndex, { onDeleted } = {}) {
+  const photos = [...sourcePhotos];
+  let deletedAny = false;
   let index = startIndex;
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
@@ -12,6 +15,7 @@ function openLightbox(device, photos, startIndex) {
         <div class="lb-sub"></div>
       </div>
       <a class="btn btn-ghost btn-icon" id="lb-download" title="Descargar">${ICONS.download}</a>
+      <button class="btn btn-ghost btn-icon" id="lb-delete" title="Borrar esta foto">${ICONS.trash}</button>
       <button class="btn btn-ghost btn-icon" id="lb-close" title="Cerrar (Esc)">${ICONS.close}</button>
     </div>
     <div class="lb-stage">
@@ -32,6 +36,7 @@ function openLightbox(device, photos, startIndex) {
 
   async function show(i) {
     index = i;
+    disarmDelete?.();
     const photo = photos[index];
     const takenAt = parseUtc(photo.captured_at);
     overlay.querySelector(".lb-date").textContent = capitalize(fmtLongDate.format(takenAt));
@@ -69,7 +74,18 @@ function openLightbox(device, photos, startIndex) {
     document.removeEventListener("keydown", onKey);
     document.body.style.overflow = "";
     overlay.remove();
+    if (deletedAny) onDeleted?.();
   }
+
+  const deleteBtn = overlay.querySelector("#lb-delete");
+  const disarmDelete = confirmButton(deleteBtn, "¿Borrar?", async () => {
+    await Api.deletePhoto(device.id, photos[index].id);
+    deletedAny = true;
+    toast("Foto borrada");
+    photos.splice(index, 1);
+    if (photos.length === 0) close();
+    else show(Math.min(index, photos.length - 1));
+  });
 
   function onKey(e) {
     if (e.key === "Escape") close();

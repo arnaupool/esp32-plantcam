@@ -5,7 +5,7 @@ from app.database import Base
 
 
 class Settings(Base):
-    """Singleton row (id=1) holding global defaults."""
+    """Singleton row (id=1). Sin uso desde el 31/10/2026: la retención va por dispositivo (Device.retention_days)."""
 
     __tablename__ = "settings"
 

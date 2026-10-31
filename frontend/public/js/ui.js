@@ -4,7 +4,47 @@ const ICONS = {
   right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>',
   close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
 };
+
+// Botón que pide un segundo clic en 4 segundos antes de una acción irreversible, en lugar de un diálogo del
+// navegador. `armedLabel` es el texto mientras espera la confirmación.
+function confirmButton(button, armedLabel, action) {
+  let armedTimer = null;
+  let originalHtml = null;
+  const disarm = () => {
+    clearTimeout(armedTimer);
+    armedTimer = null;
+    if (originalHtml !== null) button.innerHTML = originalHtml;
+    button.classList.replace("btn-danger", "btn-ghost");
+  };
+  button.addEventListener("click", async () => {
+    if (!armedTimer) {
+      originalHtml = button.innerHTML;
+      button.textContent = armedLabel;
+      button.classList.replace("btn-ghost", "btn-danger");
+      armedTimer = setTimeout(disarm, 4000);
+      return;
+    }
+    disarm();
+    button.disabled = true;
+    try {
+      await action();
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  return disarm;
+}
+
+function fmtBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1).replace(".", ",")} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2).replace(".", ",")} GB`;
+}
 
 // Todo texto que venga del servidor (nombres de dispositivo, mensajes) pasa por aquí antes de ir a innerHTML.
 function esc(value) {

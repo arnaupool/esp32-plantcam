@@ -87,8 +87,9 @@ actualizar.
 Todo está en `/mnt/user/appdata/plantcam`: `db/plantcam.db` (dispositivos y ajustes), `photos/` y `timelapses/`. Para
 una copia de seguridad basta con copiar esa carpeta.
 
-Política de retención por defecto: las fotos originales se borran al generar el timelapse semanal (el domingo a las
-00:15) y, en cualquier caso, a los 14 días. Los vídeos se conservan. Todavía no hay pantalla para cambiar esto.
+Retención: cada noche a la 01:00 se borran las fotos más antiguas que el plazo de su dispositivo (14 días por defecto).
+Se cambia en el panel, Ajustes, "Borrado automático de fotos" (de 1 semana a 1 año, o no borrar nunca); ahí también se
+ve cuánto ocupan. Los vídeos se conservan.
 
 ## Acceso desde fuera de casa
 

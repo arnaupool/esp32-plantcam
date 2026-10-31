@@ -13,7 +13,9 @@ genera timelapses diarios y semanales y los muestra en un panel web. Pensado par
   ajuste para girar la imagen si la cámara está montada de lado (lo aplica el servidor; el original no se toca).
 - El servidor genera un timelapse por día (00:05) y otro por semana (domingo 00:15) con ffmpeg, y también bajo demanda
   desde el panel; los automáticos se pueden desactivar por dispositivo y los timelapses se pueden borrar. Solo entran
-  las fotos dentro del horario. Las fotos originales se purgan tras el timelapse semanal.
+  las fotos dentro del horario.
+- Las fotos se borran solas pasado el plazo que elijas por dispositivo (de 1 semana a 1 año, o nunca; 14 días por
+  defecto), y también se pueden borrar a mano, una a una o un día entero. Los timelapses se conservan.
 - El horario lo hace cumplir el servidor con su hora local: aunque el reloj de la placa falle, fuera de horario no
   dispara.
 - Un dispositivo nuevo se da de alta solo en su primer arranque: configuras su WiFi desde el móvil y listo.
@@ -67,5 +69,5 @@ y `.venv/Scripts/python -m platformio run` compila sin necesitar la placa.
 - Con poca luz las fotos muestran bandas verticales y ruido.
 - Los timelapses ya generados no cambian si después se cambia la rotación: hay que volver a generarlos.
 - El reset de fábrica (BOOT) borra también el alta: el dispositivo reaparece en el panel como uno nuevo.
-- No hay botón para borrar dispositivos, ni pantalla para cambiar la retención de fotos.
+- No hay botón para borrar dispositivos.
 - La zona horaria del firmware es un valor fijo sin cambio de horario automático.

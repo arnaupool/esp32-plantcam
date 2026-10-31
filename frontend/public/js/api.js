@@ -68,6 +68,12 @@ const Api = {
       query: { start: start.toISOString(), end: end.toISOString() },
     });
   },
+  deletePhoto(deviceId, photoId) {
+    return Api.request(`/devices/${deviceId}/photos/${photoId}`, { method: "DELETE" });
+  },
+  deletePhotos(deviceId, ids) {
+    return Api.json(`/devices/${deviceId}/photos/delete`, { method: "POST", body: { ids } });
+  },
   listTimelapses(deviceId) {
     return Api.json("/timelapses", { query: { device_id: deviceId } });
   },

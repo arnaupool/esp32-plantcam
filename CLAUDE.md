@@ -97,7 +97,8 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
 - Panel (JWT, `POST /auth/login`): `POST/GET /devices`, `GET/PATCH /devices/{id}`,
   `GET /devices/{id}/photos[?start=&end=]` (o `?photo_date=`, día en UTC),
   `GET /devices/{id}/photos/{photo_id}/image[?size=thumb]`, `GET/POST /timelapses` (`?device_id=`),
-  `GET /timelapses/{id}/video`, `DELETE /timelapses/{id}` (borra también el mp4).
+  `GET /timelapses/{id}/video`, `DELETE /timelapses/{id}` (borra también el mp4),
+  `DELETE /devices/{id}/photos/{photo_id}`, `POST /devices/{id}/photos/delete`.
   - `GET /devices` y `GET /devices/{id}` incluyen `last_photo_id` y `last_photo_at` (portada del dashboard).
   - `start`/`end` admiten zona horaria: el panel manda el día local del navegador y el backend lo pasa a UTC.
   - `image` devuelve la foto girada según `Device.rotation`; `size=thumb` da una miniatura de 480 px. Las variantes
@@ -119,9 +120,16 @@ Con `PROVISIONING_SECRET` flojo o filtrado, cualquiera con acceso a la URL puede
   JPEG. Se aplica al servir imágenes y al generar timelapses (`transpose` de ffmpeg); el original no se toca. Los
   timelapses ya generados no cambian si luego se cambia la rotación.
 - Cron interno (APScheduler, arranca en `startup`): timelapse diario 00:05, semanal domingo 00:15, purga a las 01:00.
-- Retención: `Settings.retention_days` (global, fila id=1, 14 por defecto) o `Device.retention_days`; con
-  `Settings.delete_after_weekly_timelapse` (true por defecto) se borran las fotos de la semana al terminar el timelapse
-  semanal. No hay pantalla para cambiar estos valores.
+- Retención por dispositivo (desde el 31/10/2026, migración `c5e2a9b7d013`): `Device.retention_days` (14 por defecto;
+  `null` = no borrar nunca), en Ajustes como "Borrado automático de fotos" (1 semana a 1 año). La purga de la 01:00
+  borra las fotos más antiguas que ese plazo. El timelapse semanal ya no borra fotos y la tabla `Settings` (fila id=1,
+  `retention_days`, `delete_after_weekly_timelapse`) queda sin uso. Los vídeos nunca se borran solos.
+- Borrar fotos a mano: `DELETE /devices/{id}/photos/{photo_id}` (204/404) y `POST /devices/{id}/photos/delete`
+  `{"ids": [...]}` (devuelve `{"deleted": n}`, ignora ids de otro dispositivo). Borran original y caché. En el panel:
+  Fotos, "Seleccionar" (con "Todas" para un día entero) o la papelera del visor; doble clic para confirmar
+  (`confirmButton` de `ui.js`). `DeviceOut` trae `photo_count` y `photos_bytes` (se ven en Ajustes).
+- Nombre de archivo de foto: `HHMMSSffffff_<nombre>` (con microsegundos desde el 31/10/2026). Antes era `HHMMSS_`, y
+  dos subidas en el mismo segundo compartían archivo.
 - Los timestamps de las fotos son UTC (`utcnow`) y son la hora de llegada al servidor, no la del disparo (segundos de
   diferencia). Los nombres de archivo también van en UTC.
 

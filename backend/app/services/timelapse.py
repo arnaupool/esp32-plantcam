@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.models.device import Device
 from app.models.photo import Photo
-from app.models.settings import Settings
 from app.models.timelapse import Timelapse, TimelapseStatus, TimelapseType
 from app.services.images import remove_photo_files
 from app.services.schedule import local_day_bounds_utc, utc_naive_to_local, within_schedule
@@ -98,30 +97,14 @@ def generate_timelapse(
     timelapse.file_path = output_path if ok else None
     db.commit()
 
-    if ok and type_ == TimelapseType.WEEKLY:
-        _maybe_purge_after_weekly(db, device_id, photos)
-
     return timelapse
 
 
-def _maybe_purge_after_weekly(db: Session, device_id: str, photos: list[Photo]) -> None:
-    settings = db.get(Settings, 1)
-    if settings is None or not settings.delete_after_weekly_timelapse:
-        return
-    for photo in photos:
-        remove_photo_files(photo)
-        db.delete(photo)
-    db.commit()
-
-
 def purge_expired_photos(db: Session) -> int:
-    settings = db.get(Settings, 1)
-    default_days = settings.retention_days if settings else 14
-
+    """Borra las fotos más antiguas que la retención de su dispositivo; sin retención no se borra nada."""
     deleted = 0
-    for device in db.query(Device).all():
-        days = device.retention_days if device.retention_days is not None else default_days
-        cutoff = datetime.utcnow() - timedelta(days=days)
+    for device in db.query(Device).filter(Device.retention_days.is_not(None)).all():
+        cutoff = datetime.utcnow() - timedelta(days=device.retention_days)
         old_photos = db.query(Photo).filter(Photo.device_id == device.id, Photo.captured_at < cutoff).all()
         for photo in old_photos:
             remove_photo_files(photo)

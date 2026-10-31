@@ -14,10 +14,27 @@ const ROTATIONS = [
   [270, "90° a la izquierda"],
 ];
 
+const RETENTIONS = [
+  [7, "1 semana"],
+  [14, "2 semanas"],
+  [30, "1 mes"],
+  [60, "2 meses"],
+  [90, "3 meses"],
+  [180, "6 meses"],
+  [365, "1 año"],
+  ["", "No borrar nunca"],
+];
+
 function options(list, selected) {
   return list
     .map(([value, label]) => `<option value="${value}" ${String(value) === String(selected) ? "selected" : ""}>${label}</option>`)
     .join("");
+}
+
+// Si el valor guardado no está en la lista (puesto por la API), se añade para no perderlo al guardar.
+function retentionChoices(current) {
+  if (current == null || RETENTIONS.some(([days]) => days === current)) return RETENTIONS;
+  return [[current, `${current} días`], ...RETENTIONS];
 }
 
 function renderSettings(slot, device, onSaved) {
@@ -68,8 +85,21 @@ function renderSettings(slot, device, onSaved) {
           Uno cada semana, los domingos a las 00:15
         </label>
         <p class="muted" style="margin:0.6rem 0 0;font-size:0.85rem">
-          Al terminar el semanal se borran las fotos originales de esa semana. Si lo desactivas, las fotos se borran
-          igualmente a los 14 días. Desde la pestaña Timelapses siempre puedes generar uno a mano.
+          Desde la pestaña Timelapses siempre puedes generar uno a mano. Los vídeos no se borran solos.
+        </p>
+      </section>
+
+      <section class="form-section">
+        <h2>Borrado automático de fotos</h2>
+        <div class="form-grid">
+          <label class="field"><span>Borrar las fotos con más de</span>
+            <select name="retention_days">${options(retentionChoices(device.retention_days), device.retention_days ?? "")}</select>
+            <span class="hint">Cada noche a la 01:00. Los timelapses ya generados se conservan.</span>
+          </label>
+        </div>
+        <p class="muted" style="margin:0.6rem 0 0;font-size:0.85rem">
+          Ahora guarda ${device.photo_count === 1 ? "1 foto" : `${device.photo_count} fotos`}, ${fmtBytes(device.photos_bytes)}.
+          Para borrar fotos concretas, pestaña Fotos, Seleccionar.
         </p>
       </section>
 
@@ -97,6 +127,7 @@ function renderSettings(slot, device, onSaved) {
         rotation: Number(form.rotation.value),
         auto_daily_timelapse: form.auto_daily_timelapse.checked,
         auto_weekly_timelapse: form.auto_weekly_timelapse.checked,
+        retention_days: form.retention_days.value ? Number(form.retention_days.value) : null,
       });
       toast("Ajustes guardados");
       onSaved(updated);

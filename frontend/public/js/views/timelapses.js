@@ -73,30 +73,11 @@ function bindDownload(timelapse, button) {
   });
 }
 
-// Borrar pide un segundo clic en 4 segundos, en lugar de un diálogo del navegador.
 function bindDelete(timelapse, button, onDeleted) {
-  let armedTimer = null;
-  button.addEventListener("click", async () => {
-    if (!armedTimer) {
-      button.textContent = "¿Borrar? Pulsa otra vez";
-      button.classList.replace("btn-ghost", "btn-danger");
-      armedTimer = setTimeout(() => {
-        armedTimer = null;
-        button.textContent = "Borrar";
-        button.classList.replace("btn-danger", "btn-ghost");
-      }, 4000);
-      return;
-    }
-    clearTimeout(armedTimer);
-    button.disabled = true;
-    try {
-      await Api.deleteTimelapse(timelapse.id);
-      toast("Timelapse borrado");
-      onDeleted();
-    } catch (err) {
-      toast(err.message, "error");
-      button.disabled = false;
-    }
+  confirmButton(button, "¿Borrar? Pulsa otra vez", async () => {
+    await Api.deleteTimelapse(timelapse.id);
+    toast("Timelapse borrado");
+    onDeleted();
   });
 }
 

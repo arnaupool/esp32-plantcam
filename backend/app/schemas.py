@@ -46,6 +46,8 @@ class DeviceOut(BaseModel):
     last_seen_at: datetime | None = None
     last_photo_id: int | None = None
     last_photo_at: datetime | None = None
+    photo_count: int = 0
+    photos_bytes: int = 0
 
     class Config:
         from_attributes = True
@@ -75,6 +77,14 @@ class DeviceConfig(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PhotoDelete(BaseModel):
+    ids: list[int] = Field(min_length=1)
+
+
+class PhotosDeleted(BaseModel):
+    deleted: int
 
 
 class PhotoUploaded(BaseModel):
