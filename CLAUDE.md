@@ -69,8 +69,10 @@ ESP32-S3 (firmware/) --HTTP--> FastAPI :8000 (API + panel) <-- navegador
 - `backend/`: FastAPI, SQLAlchemy, SQLite, Alembic, APScheduler, Pillow. Elegido sin preguntar al usuario (encaja con
   Docker autocontenido). `app/main.py` registra cada router dos veces: en la raíz (`/devices`, lo que usa el firmware
   en la LAN) y bajo `/api` (`/api/devices`, lo que usa el panel y los dispositivos que entran por dominio; la copia
-  `/api` no sale en `/docs`). El panel se monta al final en `/` con `StaticFiles` desde `FRONTEND_DIR` (por defecto
-  `../frontend/public`), así que las rutas de la API tienen prioridad.
+  `/api` no sale en `/docs`). El panel se monta al final en `/` con `PanelFiles` (un `StaticFiles` que añade
+  `Cache-Control: no-cache`) desde `FRONTEND_DIR` (por defecto `../frontend/public`), así que las rutas de la API
+  tienen prioridad. Sin esa cabecera, tras actualizar el contenedor el navegador seguía con el JS viejo (pasó el
+  1/11/2026); ahora revalida con ETag y recibe 304 si no cambió.
 - `frontend/public/`: HTML y JS sin build, con rutas por `#hash`. `js/api.js` (peticiones y caché de imágenes),
   `js/ui.js` (formatos de fecha, escape de HTML, barra superior), `js/views/` (login, dashboard, página de dispositivo
   con pestañas fotos, timelapses y ajustes, y el visor a pantalla completa). Las imágenes se piden con `fetch` porque

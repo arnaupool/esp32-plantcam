@@ -41,6 +41,16 @@ def on_startup():
     start_scheduler()
 
 
+class PanelFiles(StaticFiles):
+    """Sin Cache-Control el navegador guardaba el JS viejo y tras actualizar el contenedor seguía el panel anterior.
+    Con `no-cache` revalida cada archivo (ETag, 304 si no cambió), así que una actualización se ve al recargar."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # El panel va al final: las rutas de la API tienen prioridad sobre los archivos estáticos.
 if FRONTEND_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="panel")
+    app.mount("/", PanelFiles(directory=FRONTEND_DIR, html=True), name="panel")
